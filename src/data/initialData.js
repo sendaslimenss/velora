@@ -87,6 +87,7 @@ export const CATEGORIES = [
 
 export const ORDER_STATUSES = [
   "En attente",
+  "Confirmée",
   "En préparation",
   "Prête",
   "Livrée",
@@ -353,6 +354,7 @@ export const initialOrders = [
   {
     id: 1001,
     client: "Amine Ben Ali",
+    telephone: "+216 22 418 900",
     plats: [
       { dishId: 1, nom: "Noir Lobster", quantite: 2, prix: 95 },
       { dishId: 2, nom: "Noir Foie Gras", quantite: 1, prix: 54 },
@@ -360,10 +362,12 @@ export const initialOrders = [
     total: 244,
     date: "2026-11-18",
     statut: "Livrée",
+    stockDeducted: true,
   },
   {
     id: 1002,
     client: "Senda Mansour",
+    telephone: "+216 55 710 342",
     plats: [
       { dishId: 3, nom: "Beef Wellington", quantite: 2, prix: 88 },
       { dishId: 20, nom: "Sphère Chocolat Noir & Or 24K", quantite: 2, prix: 28 },
@@ -371,10 +375,12 @@ export const initialOrders = [
     total: 232,
     date: "2026-11-19",
     statut: "Livrée",
+    stockDeducted: true,
   },
   {
     id: 1003,
     client: "Youssef Trabelsi",
+    telephone: "+216 98 302 119",
     plats: [
       { dishId: 5, nom: "Truffle Risotto", quantite: 1, prix: 62 },
       { dishId: 4, nom: "Golden Scallops", quantite: 1, prix: 49 },
@@ -383,10 +389,12 @@ export const initialOrders = [
     total: 155,
     date: "2026-11-19",
     statut: "Livrée",
+    stockDeducted: true,
   },
   {
     id: 1004,
     client: "Leila Karoui",
+    telephone: "+216 24 881 504",
     plats: [
       { dishId: 16, nom: "Lobster Linguine", quantite: 2, prix: 78 },
       { dishId: 21, nom: "Tartelette Velours Pistache & Rose", quantite: 2, prix: 26 },
@@ -394,10 +402,12 @@ export const initialOrders = [
     total: 208,
     date: "2026-11-20",
     statut: "Prête",
+    stockDeducted: true,
   },
   {
     id: 1005,
     client: "Karim Bouazizi",
+    telephone: "+216 50 619 772",
     plats: [
       { dishId: 11, nom: "Steak au Poivre", quantite: 2, prix: 72 },
       { dishId: 6, nom: "Midnight Mushrooms", quantite: 1, prix: 36 },
@@ -405,10 +415,12 @@ export const initialOrders = [
     total: 180,
     date: "2026-11-20",
     statut: "En préparation",
+    stockDeducted: true,
   },
   {
     id: 1006,
     client: "Nadia Gharbi",
+    telephone: "+216 29 945 120",
     plats: [
       { dishId: 17, nom: "Nero Tagliatelle", quantite: 1, prix: 64 },
       { dishId: 23, nom: "Nectar Safran & Bergamote", quantite: 2, prix: 19 },
@@ -416,15 +428,42 @@ export const initialOrders = [
     total: 102,
     date: "2026-11-20",
     statut: "En attente",
+    stockDeducted: false,
   },
   {
     id: 1007,
     client: "Mehdi Chaabane",
+    telephone: "+216 92 147 830",
     plats: [
       { dishId: 12, nom: "Duck à l'Orange", quantite: 1, prix: 68 },
     ],
     total: 68,
     date: "2026-11-17",
     statut: "Annulée",
+    stockDeducted: false,
   },
+  {
+    id: 1008,
+    client: "Inès Ben Youssef",
+    telephone: "Table 07 • +216 21 504 611",
+    plats: [
+      { dishId: 4, nom: "Golden Scallops", quantite: 2, prix: 49 },
+      { dishId: 14, nom: "Grilled Salmon", quantite: 1, prix: 58 },
+    ],
+    total: 156,
+    date: "2026-11-20",
+    statut: "Confirmée",
+    stockDeducted: true,
+  },
+];
+
+export const initialCustomers = [
+  { id: 1, nom: "Amine Ben Ali", telephone: "+216 22 418 900" },
+  { id: 2, nom: "Senda Mansour", telephone: "+216 55 710 342" },
+  { id: 3, nom: "Youssef Trabelsi", telephone: "+216 98 302 119" },
+  { id: 4, nom: "Leila Karoui", telephone: "+216 24 881 504" },
+  { id: 5, nom: "Karim Bouazizi", telephone: "+216 50 619 772" },
+  { id: 6, nom: "Nadia Gharbi", telephone: "+216 29 945 120" },
+  { id: 7, nom: "Mehdi Chaabane", telephone: "+216 92 147 830" },
+  { id: 8, nom: "Inès Ben Youssef", telephone: "Table 07 • +216 21 504 611" },
 ];

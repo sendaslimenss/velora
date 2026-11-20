@@ -54,6 +54,9 @@ export default function Home({ dishes, orders }) {
             <Link to="/commandes" className="velora-btn velora-btn-outline">
               Gérer les Commandes ({activeOrdersCount})
             </Link>
+            <Link to="/commandes?new=1" className="velora-btn velora-btn-outline">
+              + Nouvelle Commande
+            </Link>
           </div>
 
           <div className="velora-hero-metrics velora-glass-panel velora-reveal-5">
