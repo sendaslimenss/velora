@@ -2386,3 +2386,12 @@ select option {
     grid-template-columns: 1fr;
   }
 }
+.velora-bi-notice {
+  background: rgba(12, 12, 10, 0.48);
+  border: 1px solid var(--glass-border-gold);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 0.82rem;
+  color: var(--stone);
+  line-height: 1.55;
+}
