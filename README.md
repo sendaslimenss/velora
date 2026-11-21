@@ -1,16 +1,24 @@
-# React + Vite
+# VELORA — RestoManager
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Application web de gestion gastronomique développée avec **React JS**, **Vite**, **React Router** et **Bootstrap 5**.
 
-Currently, two official plugins are available:
+## Fonctionnalités principales
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Accueil (`/`)** : Présentation de la maison VELORA, aperçu du menu dégustation, indicateurs en direct et accès rapide par catégorie.
+- **Menu (`/menu`)** : Affichage dynamique des plats, recherche instantanée, filtrage par catégorie, édition complète et suppression avec confirmation.
+- **Ajouter (`/ajouter`)** : Formulaire contrôlé avec validation, import/compression d’image locale ou choix de visuel, aperçu en direct et redirection automatique.
+- **Commandes (`/commandes`)** : Création et modification de commandes, calcul automatique des montants, gestion des statuts et mise à jour synchronisée des stocks.
+- **Statistiques (`/statistiques`)** : Tableau de bord temps réel (chiffre d’affaires livré, panier moyen, palmarès des ventes, répartition par catégorie, valorisation des stocks) et réinitialisation démo.
+- **Persistance** : Sauvegarde automatique dans `localStorage` via `useEffect` avec synchronisation multi-onglets.
 
-## React Compiler
+## Structure du projet
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```text
+src/
+├── components/   # Navbar, DishCard, SearchBar, OrderCard, StatCard, ConfirmModal
+├── pages/        # Home, Menu, Ajouter, Commandes, Statistiques
+├── data/         # initialData.js (plats, commandes et clients initiaux)
+├── utils/        # storage.js (localStorage), validation.js (contrôles & sécurité)
+├── App.jsx       # État global partagé (Lifting State Up) et routage
+├── main.jsx      # Point d'entrée React + Bootstrap + BrowserRouter
+└── index.css     # Charte graphique et styles responsive

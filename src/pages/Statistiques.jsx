@@ -1,8 +1,13 @@
+import { useState } from "react";
 import { CATEGORIES } from "../data/initialData";
 import { getOrderTotal } from "../utils/storage";
 import StatCard from "../components/StatCard";
+import ConfirmModal from "../components/ConfirmModal";
 
-export default function Statistiques({ dishes, orders }) {
+export default function Statistiques({ dishes, orders, onResetDemoData }) {
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
   const totalDishes = dishes.length;
   const availableDishesCount = dishes.filter(
     (dish) => dish.disponible && Number(dish.stock) > 0
@@ -166,7 +171,31 @@ export default function Statistiques({ dishes, orders }) {
             ).
           </p>
         </div>
+
+        {onResetDemoData && (
+          <button
+            type="button"
+            className="velora-btn velora-btn-outline velora-reveal-3"
+            onClick={() => setIsResetModalOpen(true)}
+          >
+            ↺ Réinitialiser les données démo
+          </button>
+        )}
       </div>
+
+      {feedback && (
+        <div className="velora-feedback-banner is-success" role="status">
+          <span>{feedback}</span>
+          <button
+            type="button"
+            className="velora-feedback-close"
+            onClick={() => setFeedback(null)}
+            aria-label="Fermer la notification"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* PRIMARY & ORDER STATUS KPI CARDS */}
       <div className="velora-stats-grid">
@@ -520,6 +549,20 @@ export default function Statistiques({ dishes, orders }) {
           </div>
         </section>
       </div>
+
+      <ConfirmModal
+        isOpen={isResetModalOpen}
+        eyebrow="RÉINITIALISATION DÉMO"
+        title="Restaurer les données initiales VELORA ?"
+        message="Tous les plats, commandes et stocks actuels seront remplacés par le jeu de données de démonstration d'origine."
+        confirmLabel="Réinitialiser"
+        onConfirm={() => {
+          onResetDemoData();
+          setIsResetModalOpen(false);
+          setFeedback("Les données de démonstration VELORA ont été restaurées.");
+        }}
+        onCancel={() => setIsResetModalOpen(false)}
+      />
     </div>
   );
 }

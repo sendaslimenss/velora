@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useSearchParams } from "react-router-dom";
 import { ORDER_STATUSES } from "../data/initialData";
 import { validateOrderForm } from "../utils/validation";
 import { getOrderTotal } from "../utils/storage";
@@ -25,6 +26,8 @@ export default function Commandes({
   updateOrderStatus,
   deleteOrder,
 }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const shouldAutoOpenNew = searchParams.get("new") === "1";
   const submitLockRef = useRef(false);
 
   const [searchClient, setSearchClient] = useState("");
@@ -32,13 +35,22 @@ export default function Commandes({
   const [feedback, setFeedback] = useState(null);
 
   // Order creation / edition modal state
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(shouldAutoOpenNew);
   const [editingOrder, setEditingOrder] = useState(null);
   const [orderForm, setOrderForm] = useState(createEmptyOrderForm);
-  const [selectedDishId, setSelectedDishId] = useState("");
+  const [selectedDishId, setSelectedDishId] = useState(() => {
+    const firstAvailable = dishes.find((d) => d.disponible && d.stock > 0);
+    return firstAvailable ? String(firstAvailable.id) : "";
+  });
   const [selectedQty, setSelectedQty] = useState(1);
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Confirmation dialog state for destructive operations
   const [confirmState, setConfirmState] = useState({
@@ -295,19 +307,24 @@ export default function Commandes({
     });
   };
 
-  const handleDeleteOrderRequest = (orderId) => {
+  const handleDeleteOrderRequest = (orderOrId) => {
+    const targetId =
+      typeof orderOrId === "object" && orderOrId !== null
+        ? orderOrId.id
+        : orderOrId;
+
     setConfirmState({
       isOpen: true,
       eyebrow: "SUPPRESSION DE COMMANDE",
-      title: `Supprimer la commande #${orderId} ?`,
+      title: `Supprimer la commande #${targetId} ?`,
       message:
         "Voulez-vous vraiment supprimer cette commande de l'historique ? Si elle n'était pas livrée, son stock sera restauré.",
       confirmLabel: "Supprimer la commande",
       onConfirm: () => {
-        deleteOrder(orderId);
+        deleteOrder(targetId);
         setFeedback({
           type: "success",
-          text: `La commande #${orderId} a été supprimée.`,
+          text: `La commande #${targetId} a été supprimée.`,
         });
         closeConfirm();
       },
