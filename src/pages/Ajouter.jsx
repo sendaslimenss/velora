@@ -1,6 +1,11 @@
 import { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { CATEGORIES, initialDishes } from "../data/initialData";
+import {
+  validateDishForm,
+  validateImageFile,
+  getSafeImageSrc,
+} from "../utils/validation";
 import DishCard from "../components/DishCard";
 
 const PRESET_IMAGES = initialDishes.slice(0, 6).map((d) => ({
@@ -10,10 +15,9 @@ const PRESET_IMAGES = initialDishes.slice(0, 6).map((d) => ({
 
 const readAndCompressImage = (file) =>
   new Promise((resolve, reject) => {
-    if (!file || !file.type.startsWith("image/")) {
-      reject(
-        new Error("Veuillez sélectionner un fichier image valide (JPG, PNG, WEBP).")
-      );
+    const fileCheck = validateImageFile(file);
+    if (!fileCheck.valid) {
+      reject(new Error(fileCheck.error));
       return;
     }
 
@@ -32,7 +36,8 @@ const readAndCompressImage = (file) =>
 
         resolve(canvas.toDataURL("image/jpeg", 0.82));
       };
-      img.onerror = () => reject(new Error("Impossible de charger cette image."));
+      img.onerror = () =>
+        reject(new Error("Impossible de décoder ce fichier image."));
       img.src = event.target.result;
     };
     reader.onerror = () =>
@@ -43,6 +48,7 @@ const readAndCompressImage = (file) =>
 export default function Ajouter({ addDish }) {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const submitLockRef = useRef(false);
 
   const [formData, setFormData] = useState({
     nom: "",
@@ -55,10 +61,13 @@ export default function Ajouter({ addDish }) {
 
   const [selectedFileName, setSelectedFileName] = useState("");
   const [errors, setErrors] = useState({});
+  const [feedback, setFeedback] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setFeedback(null);
 
     if (name === "image") {
       setSelectedFileName("");
@@ -81,6 +90,7 @@ export default function Ajouter({ addDish }) {
       const dataUrl = await readAndCompressImage(file);
       setFormData((prev) => ({ ...prev, image: dataUrl }));
       setSelectedFileName(file.name);
+      setFeedback(null);
       if (errors.image) {
         setErrors((prev) => {
           const updated = { ...prev };
@@ -90,74 +100,64 @@ export default function Ajouter({ addDish }) {
       }
     } catch (err) {
       setErrors((prev) => ({ ...prev, image: err.message }));
+    } finally {
+      e.target.value = "";
     }
-  };
-
-  const validate = () => {
-    const nextErrors = {};
-
-    if (!formData.nom.trim()) {
-      nextErrors.nom = "Le nom du plat est obligatoire.";
-    } else if (formData.nom.trim().length < 2) {
-      nextErrors.nom = "Le nom doit contenir au moins 2 caractères.";
-    }
-
-    if (!formData.categorie || !CATEGORIES.includes(formData.categorie)) {
-      nextErrors.categorie = "Veuillez sélectionner une catégorie valide.";
-    }
-
-    if (!formData.description.trim()) {
-      nextErrors.description = "La description gastronomique est obligatoire.";
-    } else if (formData.description.trim().length < 10) {
-      nextErrors.description =
-        "La description doit comporter au moins 10 caractères.";
-    }
-
-    const numericPrice = Number(formData.prix);
-    if (formData.prix === "" || Number.isNaN(numericPrice)) {
-      nextErrors.prix = "Veuillez saisir un prix valide.";
-    } else if (numericPrice <= 0) {
-      nextErrors.prix = "Le prix doit être strictement supérieur à 0 DT.";
-    }
-
-    const numericStock = Number(formData.stock);
-    if (formData.stock === "" || Number.isNaN(numericStock)) {
-      nextErrors.stock = "Veuillez saisir une quantité en stock.";
-    } else if (!Number.isInteger(numericStock) || numericStock < 0) {
-      nextErrors.stock =
-        "Le stock doit être un nombre entier positif ou égal à 0.";
-    }
-
-    if (!formData.image.trim()) {
-      nextErrors.image =
-        "Importez un fichier image, collez une URL ou choisissez un visuel ci-dessous.";
-    }
-
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (submitLockRef.current || isSubmitting) return;
 
-    addDish(formData);
-    navigate("/menu");
+    const validation = validateDishForm(formData);
+    if (!validation.isValid) {
+      setErrors(validation.errors);
+      setFeedback({
+        type: "error",
+        text: "Veuillez corriger les champs signalés avant d'enregistrer le plat.",
+      });
+      return;
+    }
+
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+
+    const result = addDish(validation.sanitized);
+    if (result && result.ok === false) {
+      setErrors(result.errors || {});
+      setFeedback({ type: "error", text: result.error });
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+      return;
+    }
+
+    setFeedback({
+      type: "success",
+      text: result?.message || "Plat enregistré avec succès. Redirection...",
+    });
+
+    setTimeout(() => {
+      navigate("/menu");
+    }, 350);
   };
 
   const previewDish = {
     id: 0,
     nom: formData.nom.trim() || "Nouvelle Création VELORA",
-    categorie: formData.categorie,
+    categorie: CATEGORIES.includes(formData.categorie)
+      ? formData.categorie
+      : CATEGORIES[1],
     description:
       formData.description.trim() ||
       "Aperçu en direct de la description de votre création culinaire.",
     prix: Number(formData.prix) > 0 ? Number(formData.prix) : 45,
     stock:
-      formData.stock !== "" && Number(formData.stock) >= 0
+      formData.stock !== "" &&
+      Number.isInteger(Number(formData.stock)) &&
+      Number(formData.stock) >= 0
         ? parseInt(formData.stock, 10)
         : 10,
-    image: formData.image.trim() || PRESET_IMAGES[0].src,
+    image: getSafeImageSrc(formData.image, PRESET_IMAGES[0].src),
     disponible:
       formData.stock === "" ? true : parseInt(formData.stock, 10) > 0,
   };
@@ -184,13 +184,27 @@ export default function Ajouter({ addDish }) {
         </Link>
       </div>
 
-      <div className="velora-form-layout">
-        {/* LIQUID GLASS FORM CARD */}
-        <form
-          className="velora-form-card"
-          onSubmit={handleSubmit}
-          noValidate
+      {feedback && (
+        <div
+          className={`velora-feedback-banner ${
+            feedback.type === "error" ? "is-error" : "is-success"
+          }`}
+          role="alert"
         >
+          <span>{feedback.text}</span>
+          <button
+            type="button"
+            className="velora-feedback-close"
+            onClick={() => setFeedback(null)}
+            aria-label="Fermer la notification"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      <div className="velora-form-layout">
+        <form className="velora-form-card" onSubmit={handleSubmit} noValidate>
           <div className="row g-3">
             <div className="col-md-7">
               <label htmlFor="dish-nom" className="velora-label">
@@ -200,13 +214,18 @@ export default function Ajouter({ addDish }) {
                 id="dish-nom"
                 type="text"
                 name="nom"
+                maxLength={80}
+                aria-invalid={Boolean(errors.nom)}
+                aria-describedby={errors.nom ? "err-dish-nom" : undefined}
                 className={`velora-input ${errors.nom ? "is-invalid" : ""}`}
                 placeholder="Ex: Filet de Bar Sauvage au Safran"
                 value={formData.nom}
                 onChange={handleChange}
               />
               {errors.nom && (
-                <div className="velora-error-msg">{errors.nom}</div>
+                <div id="err-dish-nom" className="velora-error-msg">
+                  {errors.nom}
+                </div>
               )}
             </div>
 
@@ -217,6 +236,10 @@ export default function Ajouter({ addDish }) {
               <select
                 id="dish-categorie"
                 name="categorie"
+                aria-invalid={Boolean(errors.categorie)}
+                aria-describedby={
+                  errors.categorie ? "err-dish-categorie" : undefined
+                }
                 className={`velora-input ${
                   errors.categorie ? "is-invalid" : ""
                 }`}
@@ -230,7 +253,9 @@ export default function Ajouter({ addDish }) {
                 ))}
               </select>
               {errors.categorie && (
-                <div className="velora-error-msg">{errors.categorie}</div>
+                <div id="err-dish-categorie" className="velora-error-msg">
+                  {errors.categorie}
+                </div>
               )}
             </div>
 
@@ -242,6 +267,11 @@ export default function Ajouter({ addDish }) {
                 id="dish-description"
                 name="description"
                 rows="3"
+                maxLength={500}
+                aria-invalid={Boolean(errors.description)}
+                aria-describedby={
+                  errors.description ? "err-dish-description" : undefined
+                }
                 className={`velora-input ${
                   errors.description ? "is-invalid" : ""
                 }`}
@@ -250,7 +280,9 @@ export default function Ajouter({ addDish }) {
                 onChange={handleChange}
               />
               {errors.description && (
-                <div className="velora-error-msg">{errors.description}</div>
+                <div id="err-dish-description" className="velora-error-msg">
+                  {errors.description}
+                </div>
               )}
             </div>
 
@@ -263,14 +295,19 @@ export default function Ajouter({ addDish }) {
                 type="number"
                 name="prix"
                 min="0.5"
+                max="10000"
                 step="0.5"
+                aria-invalid={Boolean(errors.prix)}
+                aria-describedby={errors.prix ? "err-dish-prix" : undefined}
                 className={`velora-input ${errors.prix ? "is-invalid" : ""}`}
                 placeholder="Ex: 65"
                 value={formData.prix}
                 onChange={handleChange}
               />
               {errors.prix && (
-                <div className="velora-error-msg">{errors.prix}</div>
+                <div id="err-dish-prix" className="velora-error-msg">
+                  {errors.prix}
+                </div>
               )}
             </div>
 
@@ -283,14 +320,19 @@ export default function Ajouter({ addDish }) {
                 type="number"
                 name="stock"
                 min="0"
+                max="9999"
                 step="1"
+                aria-invalid={Boolean(errors.stock)}
+                aria-describedby={errors.stock ? "err-dish-stock" : undefined}
                 className={`velora-input ${errors.stock ? "is-invalid" : ""}`}
                 placeholder="Ex: 12"
                 value={formData.stock}
                 onChange={handleChange}
               />
               {errors.stock && (
-                <div className="velora-error-msg">{errors.stock}</div>
+                <div id="err-dish-stock" className="velora-error-msg">
+                  {errors.stock}
+                </div>
               )}
             </div>
 
@@ -303,7 +345,7 @@ export default function Ajouter({ addDish }) {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
                   className="d-none"
                   onChange={handleFileUpload}
                 />
@@ -334,6 +376,8 @@ export default function Ajouter({ addDish }) {
                   id="dish-image"
                   type="text"
                   name="image"
+                  aria-invalid={Boolean(errors.image)}
+                  aria-describedby={errors.image ? "err-dish-image" : undefined}
                   className={`velora-input ${errors.image ? "is-invalid" : ""}`}
                   placeholder="Ou collez l'adresse URL d'une image (https://...)"
                   value={
@@ -352,7 +396,9 @@ export default function Ajouter({ addDish }) {
               )}
 
               {errors.image && (
-                <div className="velora-error-msg">{errors.image}</div>
+                <div id="err-dish-image" className="velora-error-msg">
+                  {errors.image}
+                </div>
               )}
 
               <div className="velora-preset-box">
@@ -370,6 +416,7 @@ export default function Ajouter({ addDish }) {
                       onClick={() => {
                         setFormData((prev) => ({ ...prev, image: preset.src }));
                         setSelectedFileName("");
+                        setFeedback(null);
                         if (errors.image) {
                           setErrors((prev) => {
                             const updated = { ...prev };
@@ -388,8 +435,12 @@ export default function Ajouter({ addDish }) {
             </div>
 
             <div className="col-12 pt-2 d-flex gap-3 flex-wrap">
-              <button type="submit" className="velora-btn velora-btn-gold">
-                Enregistrer le Plat
+              <button
+                type="submit"
+                className="velora-btn velora-btn-gold"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Enregistrement..." : "Enregistrer le Plat"}
               </button>
               <Link to="/menu" className="velora-btn velora-btn-outline">
                 Annuler
@@ -398,7 +449,6 @@ export default function Ajouter({ addDish }) {
           </div>
         </form>
 
-        {/* LIVE PREVIEW */}
         <aside className="velora-preview-aside">
           <div className="velora-preview-tag">APERÇU EN DIRECT</div>
           <DishCard dish={previewDish} />

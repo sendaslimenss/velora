@@ -1,22 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Routes, Route } from "react-router-dom";
-import { initialDishes, ORDER_STATUSES } from "./data/initialData";
 import {
-  loadDishesFromStorage,
-  saveDishesToStorage,
-  loadOrdersFromStorage,
-  saveOrdersToStorage,
-  loadCustomersFromStorage,
-  saveCustomersToStorage,
-  generateUniqueOrderId,
+  initialDishes,
+  initialOrders,
+  initialCustomers,
+} from "./data/initialData";
+import {
+  STORAGE_KEYS,
   isCommittedStatus,
-  canTransitionStatus,
-  validateStockForOrder,
-  validateStockForOrderUpdate,
-  applyStockDeduction,
-  applyStockRestoration,
-  applyStockDelta,
+  getOrderTotal,
+  normalizeDish,
+  normalizeOrder,
+  normalizeCustomer,
+  loadCollectionFromStorage,
+  saveCollectionToStorage,
+  clearVeloraStorage,
 } from "./utils/storage";
+import {
+  validateDishForm,
+  validateCustomerForm,
+  validateOrderForm,
+  validateStatusTransition,
+  getSafeImageSrc,
+} from "./utils/validation";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Menu from "./pages/Menu";
@@ -24,26 +30,149 @@ import Ajouter from "./pages/Ajouter";
 import Commandes from "./pages/Commandes";
 import Statistiques from "./pages/Statistiques";
 
-export default function App() {
-  const [dishes, setDishes] = useState(() => loadDishesFromStorage());
-  const [orders, setOrders] = useState(() => loadOrdersFromStorage());
-  const [customers, setCustomers] = useState(() =>
-    loadCustomersFromStorage(loadOrdersFromStorage())
-  );
+const mergeCustomersWithOrders = (customersList, ordersList) => {
+  const merged = [...customersList];
+  const seen = new Set(merged.map((c) => c.nom.toLowerCase()));
 
+  ordersList.forEach((order, idx) => {
+    const clientName = (order?.client || "").trim();
+    if (!clientName) return;
+    const key = clientName.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(
+        normalizeCustomer(
+          {
+            id: `cust-order-${order.id ?? idx}`,
+            nom: clientName,
+            telephone: order?.telephone || "",
+            email: order?.email || "",
+          },
+          idx
+        )
+      );
+    }
+  });
+
+  return merged;
+};
+
+export default function App() {
+  const initialHydrationRef = useRef(null);
+
+  if (initialHydrationRef.current === null) {
+    const dishesHydration = loadCollectionFromStorage(
+      STORAGE_KEYS.DISHES,
+      initialDishes,
+      normalizeDish
+    );
+    const ordersHydration = loadCollectionFromStorage(
+      STORAGE_KEYS.ORDERS,
+      initialOrders,
+      normalizeOrder
+    );
+    const customersHydration = loadCollectionFromStorage(
+      STORAGE_KEYS.CUSTOMERS,
+      initialCustomers,
+      normalizeCustomer
+    );
+
+    const hydratedCustomers = customersHydration.seededFromDefault
+      ? mergeCustomersWithOrders(
+          customersHydration.data,
+          ordersHydration.data
+        )
+      : customersHydration.data;
+
+    initialHydrationRef.current = {
+      dishes: dishesHydration.data,
+      orders: ordersHydration.data,
+      customers: hydratedCustomers,
+      snapshots: {
+        [STORAGE_KEYS.DISHES]: dishesHydration.rawSnapshot,
+        [STORAGE_KEYS.ORDERS]: ordersHydration.rawSnapshot,
+        [STORAGE_KEYS.CUSTOMERS]: customersHydration.rawSnapshot,
+      },
+    };
+  }
+
+  const lastSavedSnapshotsRef = useRef(initialHydrationRef.current.snapshots);
+
+  const [dishes, setDishes] = useState(
+    () => initialHydrationRef.current.dishes
+  );
+  const [orders, setOrders] = useState(
+    () => initialHydrationRef.current.orders
+  );
+  const [customers, setCustomers] = useState(
+    () => initialHydrationRef.current.customers
+  );
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
-    saveDishesToStorage(dishes);
+    saveCollectionToStorage(
+      STORAGE_KEYS.DISHES,
+      dishes,
+      lastSavedSnapshotsRef,
+      normalizeDish
+    );
   }, [dishes]);
 
   useEffect(() => {
-    saveOrdersToStorage(orders);
+    saveCollectionToStorage(
+      STORAGE_KEYS.ORDERS,
+      orders,
+      lastSavedSnapshotsRef,
+      normalizeOrder
+    );
   }, [orders]);
 
   useEffect(() => {
-    saveCustomersToStorage(customers);
+    saveCollectionToStorage(
+      STORAGE_KEYS.CUSTOMERS,
+      customers,
+      lastSavedSnapshotsRef,
+      normalizeCustomer
+    );
   }, [customers]);
+
+  useEffect(() => {
+    const handleStorageSync = (event) => {
+      if (!event.key || !Object.values(STORAGE_KEYS).includes(event.key)) {
+        return;
+      }
+
+      if (event.key === STORAGE_KEYS.DISHES) {
+        const next = loadCollectionFromStorage(
+          STORAGE_KEYS.DISHES,
+          initialDishes,
+          normalizeDish
+        );
+        lastSavedSnapshotsRef.current[STORAGE_KEYS.DISHES] = next.rawSnapshot;
+        setDishes(next.data);
+      } else if (event.key === STORAGE_KEYS.ORDERS) {
+        const next = loadCollectionFromStorage(
+          STORAGE_KEYS.ORDERS,
+          initialOrders,
+          normalizeOrder
+        );
+        lastSavedSnapshotsRef.current[STORAGE_KEYS.ORDERS] = next.rawSnapshot;
+        setOrders(next.data);
+      } else if (event.key === STORAGE_KEYS.CUSTOMERS) {
+        const next = loadCollectionFromStorage(
+          STORAGE_KEYS.CUSTOMERS,
+          initialCustomers,
+          normalizeCustomer
+        );
+        lastSavedSnapshotsRef.current[STORAGE_KEYS.CUSTOMERS] =
+          next.rawSnapshot;
+        setCustomers(next.data);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageSync);
+    return () => window.removeEventListener("storage", handleStorageSync);
+  }, []);
 
   useEffect(() => {
     let ticking = false;
@@ -62,375 +191,431 @@ export default function App() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const upsertCustomer = (clientName, telephone = "") => {
-    const cleanName = (clientName || "").trim();
-    const cleanPhone = (telephone || "").trim();
-    if (!cleanName) return;
-
-    setCustomers((prev) => {
-      const existingIndex = prev.findIndex(
-        (c) => c.nom.toLowerCase() === cleanName.toLowerCase()
+  const upsertCustomer = useCallback(
+    (clientName, telephone = "", email = "") => {
+      const check = validateCustomerForm(
+        { client: clientName, telephone, email },
+        { requirePhone: false, requireEmail: false }
       );
-      if (existingIndex !== -1) {
-        if (!cleanPhone || prev[existingIndex].telephone === cleanPhone) {
-          return prev;
-        }
-        return prev.map((c, idx) =>
-          idx === existingIndex ? { ...c, telephone: cleanPhone } : c
+      if (!check.isValid) return;
+
+      const { nom, telephone: cleanPhone, email: cleanEmail } = check.sanitized;
+
+      setCustomers((prev) => {
+        const existingIndex = prev.findIndex(
+          (c) => c.nom.toLowerCase() === nom.toLowerCase()
         );
-      }
-      return [
-        {
-          id: Date.now(),
-          nom: cleanName,
-          telephone: cleanPhone,
-        },
-        ...prev,
-      ];
-    });
-  };
+        if (existingIndex !== -1) {
+          const updated = [...prev];
+          updated[existingIndex] = normalizeCustomer({
+            ...updated[existingIndex],
+            nom,
+            telephone: cleanPhone || updated[existingIndex].telephone || "",
+            email: cleanEmail || updated[existingIndex].email || "",
+          });
+          return updated;
+        }
+        return [
+          normalizeCustomer({
+            id: `cust-${Date.now()}`,
+            nom,
+            telephone: cleanPhone,
+            email: cleanEmail,
+          }),
+          ...prev,
+        ];
+      });
+    },
+    []
+  );
 
   const addDish = (newDish) => {
-    const parsedStock = Math.max(0, parseInt(newDish.stock, 10) || 0);
-    const created = {
+    const check = validateDishForm(newDish);
+    if (!check.isValid) {
+      const firstError = Object.values(check.errors)[0];
+      return { ok: false, error: firstError, errors: check.errors };
+    }
+
+    const created = normalizeDish({
       id: Date.now(),
-      nom: newDish.nom.trim(),
-      categorie: newDish.categorie,
-      description: newDish.description.trim(),
-      prix: Number(newDish.prix),
-      stock: parsedStock,
-      image: newDish.image.trim(),
-      disponible: parsedStock > 0,
-    };
+      ...check.sanitized,
+      disponible: check.sanitized.stock > 0,
+    });
+
     setDishes((prev) => [created, ...prev]);
+    return {
+      ok: true,
+      dish: created,
+      message: `Le plat « ${created.nom} » a été ajouté au menu.`,
+    };
   };
 
   const updateDish = (updatedDish) => {
-    const parsedStock = Math.max(0, parseInt(updatedDish.stock, 10) || 0);
+    if (!updatedDish || updatedDish.id === undefined || updatedDish.id === null) {
+      return { ok: false, error: "Identifiant du plat manquant." };
+    }
+
+    const check = validateDishForm(updatedDish);
+    if (!check.isValid) {
+      const firstError = Object.values(check.errors)[0];
+      return { ok: false, error: firstError, errors: check.errors };
+    }
+
     setDishes((prev) =>
       prev.map((dish) =>
         dish.id === updatedDish.id
-          ? {
+          ? normalizeDish({
               ...dish,
-              nom: updatedDish.nom.trim(),
-              categorie: updatedDish.categorie,
-              description: updatedDish.description.trim(),
-              prix: Number(updatedDish.prix),
-              stock: parsedStock,
-              image: updatedDish.image.trim(),
-              disponible: parsedStock > 0,
-            }
+              ...check.sanitized,
+              disponible: check.sanitized.stock > 0,
+            })
           : dish
       )
     );
+
+    return {
+      ok: true,
+      message: `Le plat « ${check.sanitized.nom} » a été mis à jour.`,
+    };
   };
 
   const deleteDish = (dishId) => {
+    if (dishId === undefined || dishId === null) return;
     setDishes((prev) => prev.filter((dish) => dish.id !== dishId));
   };
 
   const createOrder = (orderPayload) => {
-    const cleanClient = (orderPayload.client || "").trim();
-    const cleanPhone = (orderPayload.telephone || "").trim();
-    const orderDate =
-      (orderPayload.date || "").trim() ||
-      new Date().toISOString().slice(0, 10);
-    const targetStatus = ORDER_STATUSES.includes(orderPayload.statut)
-      ? orderPayload.statut
-      : "Confirmée";
-
-    if (cleanClient.length < 2) {
-      return {
-        ok: false,
-        error: "Veuillez saisir ou sélectionner un client valide (min. 2 caractères).",
-      };
+    const validation = validateOrderForm(orderPayload, dishes, null);
+    if (!validation.isValid) {
+      const firstError =
+        validation.errors.client ||
+        validation.errors.telephone ||
+        validation.errors.email ||
+        validation.errors.plats ||
+        validation.errors.statut ||
+        "Veuillez corriger les erreurs du formulaire de commande.";
+      return { ok: false, error: firstError, errors: validation.errors };
     }
 
-    const rawItems = Array.isArray(orderPayload.plats)
-      ? orderPayload.plats
-      : [];
-    if (rawItems.length === 0) {
-      return {
-        ok: false,
-        error: "Veuillez ajouter au moins un plat à la commande.",
-      };
-    }
+    const { client, telephone, email, date, statut, plats } =
+      validation.sanitized;
+    const shouldDeduct = isCommittedStatus(statut);
 
-    const normalizedPlats = [];
-    for (const item of rawItems) {
-      const dish = dishes.find((d) => d.id === item.dishId);
-      if (!dish) {
-        return {
-          ok: false,
-          error: "Un des plats sélectionnés n'existe plus dans le menu.",
-        };
-      }
-      const qty = Number(item.quantite);
-      if (!Number.isInteger(qty) || qty <= 0) {
-        return {
-          ok: false,
-          error: `Quantité invalide pour « ${dish.nom} ».`,
-        };
-      }
-      normalizedPlats.push({
-        dishId: dish.id,
-        nom: dish.nom,
-        quantite: qty,
-        prix: Number(dish.prix),
-      });
-    }
-
-    const stockCheck = validateStockForOrder(dishes, normalizedPlats);
-    if (!stockCheck.valid) {
-      return { ok: false, error: stockCheck.error };
-    }
-
-    const shouldDeduct = isCommittedStatus(targetStatus);
     if (shouldDeduct) {
-      setDishes((prev) => applyStockDeduction(prev, normalizedPlats));
+      const deductionMap = new Map();
+      plats.forEach((item) => {
+        deductionMap.set(
+          item.dishId,
+          (deductionMap.get(item.dishId) || 0) + item.quantite
+        );
+      });
+
+      setDishes((prev) =>
+        prev.map((dish) => {
+          if (!deductionMap.has(dish.id)) return dish;
+          const nextStock = Math.max(
+            0,
+            Number(dish.stock) - deductionMap.get(dish.id)
+          );
+          return {
+            ...dish,
+            stock: nextStock,
+            disponible: nextStock > 0,
+          };
+        })
+      );
     }
 
-    const newOrderId = generateUniqueOrderId(orders);
-    const total = normalizedPlats.reduce(
-      (sum, item) => sum + item.prix * item.quantite,
-      0
-    );
+    const nextId =
+      orders.reduce((maxId, o) => Math.max(maxId, Number(o.id) || 1000), 1000) +
+      1;
 
-    const newOrder = {
-      id: newOrderId,
-      client: cleanClient,
-      telephone: cleanPhone,
-      plats: normalizedPlats,
-      total,
-      date: orderDate,
-      statut: targetStatus,
+    const createdOrder = normalizeOrder({
+      id: nextId,
+      client,
+      telephone,
+      email,
+      plats,
+      total: getOrderTotal({ plats }),
+      date,
+      statut,
       stockDeducted: shouldDeduct,
-    };
+    });
 
-    setOrders((prev) => [newOrder, ...prev]);
-    upsertCustomer(cleanClient, cleanPhone);
+    setOrders((prev) => [createdOrder, ...prev]);
+    upsertCustomer(client, telephone, email);
 
     return {
       ok: true,
-      order: newOrder,
+      order: createdOrder,
       message: shouldDeduct
-        ? `Commande #${newOrderId} créée (${targetStatus}) et stocks mis à jour.`
-        : `Commande #${newOrderId} enregistrée en attente de confirmation.`,
+        ? `Commande #${nextId} enregistrée (${statut}) et stock déduit.`
+        : `Commande #${nextId} enregistrée en attente.`,
     };
   };
 
-  const updateOrder = (orderId, updatedPayload) => {
+  const updateOrder = (orderId, orderPayload) => {
     const existingOrder = orders.find((o) => o.id === orderId);
     if (!existingOrder) {
       return { ok: false, error: "Commande introuvable." };
     }
 
     if (
-      existingOrder.statut === "Livrée" ||
-      existingOrder.statut === "Annulée"
+      existingOrder.statut === "Annulée" ||
+      existingOrder.statut === "Livrée"
     ) {
       return {
         ok: false,
-        error: `Impossible de modifier une commande au statut « ${existingOrder.statut} ».`,
+        error: `Une commande « ${existingOrder.statut} » ne peut plus être modifiée.`,
       };
     }
 
-    const cleanClient = (updatedPayload.client || "").trim();
-    const cleanPhone = (updatedPayload.telephone || "").trim();
-    const orderDate =
-      (updatedPayload.date || "").trim() || existingOrder.date;
-
-    if (cleanClient.length < 2) {
-      return {
-        ok: false,
-        error: "Veuillez saisir un nom de client valide (min. 2 caractères).",
-      };
+    const validation = validateOrderForm(orderPayload, dishes, existingOrder);
+    if (!validation.isValid) {
+      const firstError =
+        validation.errors.client ||
+        validation.errors.telephone ||
+        validation.errors.email ||
+        validation.errors.plats ||
+        "Veuillez corriger les erreurs avant d'enregistrer.";
+      return { ok: false, error: firstError, errors: validation.errors };
     }
 
-    const rawItems = Array.isArray(updatedPayload.plats)
-      ? updatedPayload.plats
-      : [];
-    if (rawItems.length === 0) {
-      return {
-        ok: false,
-        error: "La commande doit contenir au moins un plat.",
-      };
-    }
+    const { client, telephone, email, date, statut, plats } =
+      validation.sanitized;
 
-    const normalizedPlats = [];
-    for (const item of rawItems) {
-      const dish = dishes.find((d) => d.id === item.dishId);
-      const oldLine = existingOrder.plats.find((p) => p.dishId === item.dishId);
-      const unitPrice = dish
-        ? Number(dish.prix)
-        : oldLine
-        ? Number(oldLine.prix)
-        : Number(item.prix) || 0;
-      const dishName = dish ? dish.nom : oldLine ? oldLine.nom : item.nom;
-      const qty = Number(item.quantite);
+    const wasDeducted = Boolean(existingOrder.stockDeducted);
+    const willBeDeducted = isCommittedStatus(statut);
 
-      if (!Number.isInteger(qty) || qty <= 0) {
-        return {
-          ok: false,
-          error: `Quantité invalide pour « ${dishName} ».`,
-        };
-      }
-
-      normalizedPlats.push({
-        dishId: item.dishId,
-        nom: dishName,
-        quantite: qty,
-        prix: unitPrice,
+    const prevQtyMap = new Map();
+    if (wasDeducted) {
+      (existingOrder.plats || []).forEach((item) => {
+        prevQtyMap.set(
+          item.dishId,
+          (prevQtyMap.get(item.dishId) || 0) + Number(item.quantite)
+        );
       });
     }
 
-    const stockCheck = validateStockForOrderUpdate(
-      dishes,
-      existingOrder,
-      normalizedPlats
-    );
-    if (!stockCheck.valid) {
-      return { ok: false, error: stockCheck.error };
+    const nextQtyMap = new Map();
+    if (willBeDeducted) {
+      plats.forEach((item) => {
+        nextQtyMap.set(
+          item.dishId,
+          (nextQtyMap.get(item.dishId) || 0) + Number(item.quantite)
+        );
+      });
     }
 
-    if (existingOrder.stockDeducted) {
+    const allDishIds = new Set([...prevQtyMap.keys(), ...nextQtyMap.keys()]);
+    const deltaMap = new Map();
+    allDishIds.forEach((dishId) => {
+      deltaMap.set(
+        dishId,
+        (nextQtyMap.get(dishId) || 0) - (prevQtyMap.get(dishId) || 0)
+      );
+    });
+
+    setDishes((prev) =>
+      prev.map((dish) => {
+        if (!deltaMap.has(dish.id)) return dish;
+        const delta = deltaMap.get(dish.id);
+        if (delta === 0) return dish;
+        const nextStock = Math.max(0, Number(dish.stock) - delta);
+        return {
+          ...dish,
+          stock: nextStock,
+          disponible: nextStock > 0,
+        };
+      })
+    );
+
+    const updatedOrder = normalizeOrder({
+      ...existingOrder,
+      client,
+      telephone,
+      email,
+      plats,
+      total: getOrderTotal({ plats }),
+      date,
+      statut,
+      stockDeducted: willBeDeducted,
+    });
+
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? updatedOrder : o))
+    );
+    upsertCustomer(client, telephone, email);
+
+    return {
+      ok: true,
+      order: updatedOrder,
+      message: `Commande #${orderId} mise à jour avec succès.`,
+    };
+  };
+
+  const updateOrderStatus = (orderId, nextStatus) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) {
+      return { ok: false, error: "Commande introuvable." };
+    }
+
+    const transitionCheck = validateStatusTransition(
+      targetOrder.statut,
+      nextStatus
+    );
+    if (!transitionCheck.valid) {
+      return { ok: false, error: transitionCheck.error };
+    }
+
+    if (targetOrder.statut === nextStatus) {
+      return { ok: true, message: "Statut inchangé." };
+    }
+
+    const wasDeducted = Boolean(targetOrder.stockDeducted);
+    const willBeDeducted = isCommittedStatus(nextStatus);
+
+    if (!wasDeducted && willBeDeducted) {
+      const neededMap = new Map();
+      (targetOrder.plats || []).forEach((item) => {
+        neededMap.set(
+          item.dishId,
+          (neededMap.get(item.dishId) || 0) + Number(item.quantite)
+        );
+      });
+
+      for (const [dishId, qtyNeeded] of neededMap.entries()) {
+        const dish = dishes.find((d) => d.id === dishId);
+        if (!dish || Number(dish.stock) < qtyNeeded) {
+          return {
+            ok: false,
+            error: `Impossible de valider : stock insuffisant pour « ${
+              dish ? dish.nom : "un plat"
+            } ».`,
+          };
+        }
+      }
+
       setDishes((prev) =>
-        applyStockDelta(prev, existingOrder.plats, normalizedPlats)
+        prev.map((dish) => {
+          if (!neededMap.has(dish.id)) return dish;
+          const nextStock = Math.max(
+            0,
+            Number(dish.stock) - neededMap.get(dish.id)
+          );
+          return {
+            ...dish,
+            stock: nextStock,
+            disponible: nextStock > 0,
+          };
+        })
       );
     }
 
-    const total = normalizedPlats.reduce(
-      (sum, item) => sum + item.prix * item.quantite,
-      0
-    );
+    if (wasDeducted && nextStatus === "Annulée") {
+      const restoreMap = new Map();
+      (targetOrder.plats || []).forEach((item) => {
+        restoreMap.set(
+          item.dishId,
+          (restoreMap.get(item.dishId) || 0) + Number(item.quantite)
+        );
+      });
+
+      setDishes((prev) =>
+        prev.map((dish) => {
+          if (!restoreMap.has(dish.id)) return dish;
+          const nextStock = Number(dish.stock) + restoreMap.get(dish.id);
+          return {
+            ...dish,
+            stock: nextStock,
+            disponible: nextStock > 0,
+          };
+        })
+      );
+    }
+
+    const nextStockDeducted =
+      nextStatus === "Annulée" ? false : wasDeducted || willBeDeducted;
 
     setOrders((prev) =>
       prev.map((order) =>
         order.id === orderId
           ? {
               ...order,
-              client: cleanClient,
-              telephone: cleanPhone,
-              date: orderDate,
-              plats: normalizedPlats,
-              total,
+              statut: nextStatus,
+              stockDeducted: nextStockDeducted,
             }
           : order
       )
     );
 
-    upsertCustomer(cleanClient, cleanPhone);
-
     return {
       ok: true,
-      message: `Commande #${orderId} modifiée — stocks et totaux synchronisés.`,
+      message:
+        nextStatus === "Annulée" && wasDeducted
+          ? `Commande #${orderId} annulée et stock restauré.`
+          : `Statut de la commande #${orderId} passé à « ${nextStatus} ».`,
     };
   };
 
-  const updateOrderStatus = (orderId, newStatus) => {
-    const targetOrder = orders.find((o) => o.id === orderId);
-    if (!targetOrder) {
-      return { ok: false, error: "Commande introuvable." };
-    }
-
-    const transition = canTransitionStatus(targetOrder.statut, newStatus);
-    if (!transition.valid) {
-      return { ok: false, error: transition.reason };
-    }
-
-    if (isCommittedStatus(newStatus)) {
-      if (!targetOrder.stockDeducted) {
-        const stockCheck = validateStockForOrder(dishes, targetOrder.plats);
-        if (!stockCheck.valid) {
-          return { ok: false, error: stockCheck.error };
-        }
-
-        setDishes((prev) => applyStockDeduction(prev, targetOrder.plats));
-        setOrders((prev) =>
-          prev.map((order) =>
-            order.id === orderId
-              ? { ...order, statut: newStatus, stockDeducted: true }
-              : order
-          )
-        );
-        return {
-          ok: true,
-          message: `Commande #${orderId} passée à « ${newStatus} » — stock déduit.`,
-        };
-      }
-
-      setOrders((prev) =>
-        prev.map((order) =>
-          order.id === orderId
-            ? { ...order, statut: newStatus, stockDeducted: true }
-            : order
-        )
-      );
-      return {
-        ok: true,
-        message: `Statut de la commande #${orderId} mis à jour : « ${newStatus} ».`,
-      };
-    }
-
-    if (newStatus === "Annulée") {
-      if (targetOrder.stockDeducted) {
-        setDishes((prev) => applyStockRestoration(prev, targetOrder.plats));
-        setOrders((prev) =>
-          prev.map((order) =>
-            order.id === orderId
-              ? { ...order, statut: "Annulée", stockDeducted: false }
-              : order
-          )
-        );
-        return {
-          ok: true,
-          message: `Commande #${orderId} annulée — les quantités ont été restaurées en stock.`,
-        };
-      }
-
-      setOrders((prev) =>
-        prev.map((order) =>
-          order.id === orderId
-            ? { ...order, statut: "Annulée", stockDeducted: false }
-            : order
-        )
-      );
-      return {
-        ok: true,
-        message: `Commande #${orderId} annulée.`,
-      };
-    }
-
-    return { ok: false, error: "Transition de statut non prise en charge." };
-  };
-
   const deleteOrder = (orderId) => {
-    const targetOrder = orders.find((o) => o.id === orderId);
-    if (
-      targetOrder &&
-      targetOrder.stockDeducted &&
-      targetOrder.statut !== "Livrée"
-    ) {
-      setDishes((prev) => applyStockRestoration(prev, targetOrder.plats));
+    const target = orders.find((o) => o.id === orderId);
+    if (target && target.stockDeducted && target.statut !== "Livrée") {
+      const restoreMap = new Map();
+      (target.plats || []).forEach((item) => {
+        restoreMap.set(
+          item.dishId,
+          (restoreMap.get(item.dishId) || 0) + Number(item.quantite)
+        );
+      });
+      setDishes((prev) =>
+        prev.map((dish) => {
+          if (!restoreMap.has(dish.id)) return dish;
+          const nextStock = Number(dish.stock) + restoreMap.get(dish.id);
+          return {
+            ...dish,
+            stock: nextStock,
+            disponible: nextStock > 0,
+          };
+        })
+      );
     }
     setOrders((prev) => prev.filter((order) => order.id !== orderId));
   };
 
-  const safeDishes = Array.isArray(initialDishes) ? initialDishes : [];
+  const resetDemoData = () => {
+    clearVeloraStorage();
+    lastSavedSnapshotsRef.current = {
+      [STORAGE_KEYS.DISHES]: null,
+      [STORAGE_KEYS.ORDERS]: null,
+      [STORAGE_KEYS.CUSTOMERS]: null,
+    };
+    const resetDishes = initialDishes.map(normalizeDish);
+    const resetOrders = initialOrders.map(normalizeOrder);
+    const resetCustomers = mergeCustomersWithOrders(
+      initialCustomers.map(normalizeCustomer),
+      resetOrders
+    );
+    setDishes(resetDishes);
+    setOrders(resetOrders);
+    setCustomers(resetCustomers);
+  };
+
+  const safeDishes = Array.isArray(dishes) ? dishes : [];
   const lobsterDish = safeDishes.find(
     (d) =>
       d.image?.toLowerCase().includes("lobster") ||
       d.nom?.toLowerCase().includes("lobster") ||
       d.nom?.toLowerCase().includes("homard")
   );
-  const backdropImage =
-    lobsterDish?.image || safeDishes[0]?.image || "/dishes/Noir Lobster.jpg";
+  const backdropImage = getSafeImageSrc(
+    lobsterDish?.image || safeDishes[0]?.image || initialDishes[0]?.image
+  );
 
   const parallaxOffset = Math.min(scrollY * 0.16, 220);
 
   return (
     <div className="velora-app">
-      {/* FOND PARALLAX HOMARD SUR TOUTES LES PAGES */}
       <div className="velora-global-backdrop" aria-hidden="true">
         <img
           src={backdropImage}
@@ -447,10 +632,7 @@ export default function App() {
 
       <main className="velora-main">
         <Routes>
-          <Route
-            path="/"
-            element={<Home dishes={dishes} orders={orders} />}
-          />
+          <Route path="/" element={<Home dishes={dishes} orders={orders} />} />
           <Route
             path="/menu"
             element={
@@ -478,7 +660,13 @@ export default function App() {
           />
           <Route
             path="/statistiques"
-            element={<Statistiques dishes={dishes} orders={orders} />}
+            element={
+              <Statistiques
+                dishes={dishes}
+                orders={orders}
+                onResetDemoData={resetDemoData}
+              />
+            }
           />
         </Routes>
       </main>

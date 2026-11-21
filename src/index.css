@@ -2395,3 +2395,59 @@ select option {
   color: var(--stone);
   line-height: 1.55;
 }
+
+/* =========================================================
+   PHASE 4 — FEEDBACK BANNERS, CONFIRM MODAL & DISABLED STATE
+   ========================================================= */
+.velora-feedback-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  margin-bottom: 24px;
+  border-radius: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border-gold);
+  color: var(--ivory);
+  font-size: 0.9rem;
+  box-shadow: var(--glass-shadow);
+  animation: veloraFadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.velora-feedback-banner.is-error {
+  border-color: rgba(242, 223, 179, 0.72);
+  color: var(--gold-light);
+}
+
+.velora-feedback-close {
+  background: transparent;
+  border: none;
+  color: var(--stone);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.velora-feedback-close:hover {
+  color: var(--ivory);
+}
+
+.velora-confirm-card {
+  max-width: 500px;
+}
+
+.velora-confirm-message {
+  color: #dcd5c8;
+  font-size: 0.95rem;
+  margin-bottom: 24px;
+}
+
+.velora-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+}

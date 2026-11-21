@@ -1,144 +1,326 @@
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useSearchParams } from "react-router-dom";
 import { ORDER_STATUSES } from "../data/initialData";
-import { getOrderTotal, isCommittedStatus } from "../utils/storage";
+import { validateOrderForm } from "../utils/validation";
+import { getOrderTotal } from "../utils/storage";
 import SearchBar from "../components/SearchBar";
 import OrderCard from "../components/OrderCard";
-import OrderFormModal from "../components/OrderFormModal";
+import ConfirmModal from "../components/ConfirmModal";
+
+const createEmptyOrderForm = () => ({
+  client: "",
+  telephone: "",
+  email: "",
+  date: new Date().toISOString().slice(0, 10),
+  statut: "En préparation",
+  plats: [],
+});
 
 export default function Commandes({
-  dishes,
-  orders,
-  customers,
+  dishes = [],
+  orders = [],
+  customers = [],
   createOrder,
   updateOrder,
   updateOrderStatus,
   deleteOrder,
 }) {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const submitLockRef = useRef(false);
 
-  const [searchOrderQuery, setSearchOrderQuery] = useState("");
   const [searchClient, setSearchClient] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("Toutes");
-  const [selectedDate, setSelectedDate] = useState("");
-
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-  const [editingOrder, setEditingOrder] = useState(null);
-  const [detailOrder, setDetailOrder] = useState(null);
-  const [orderToDelete, setOrderToDelete] = useState(null);
   const [feedback, setFeedback] = useState(null);
 
-  useEffect(() => {
-    if (searchParams.get("new") === "1") {
-      setEditingOrder(null);
-      setIsOrderModalOpen(true);
-      setSearchParams({});
-    }
-  }, [searchParams, setSearchParams]);
+  // Order creation / edition modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [orderForm, setOrderForm] = useState(createEmptyOrderForm);
+  const [selectedDishId, setSelectedDishId] = useState("");
+  const [selectedQty, setSelectedQty] = useState(1);
+  const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!feedback) return;
-    const timer = setTimeout(() => setFeedback(null), 5500);
-    return () => clearTimeout(timer);
-  }, [feedback]);
+  // Confirmation dialog state for destructive operations
+  const [confirmState, setConfirmState] = useState({
+    isOpen: false,
+    eyebrow: "",
+    title: "",
+    message: "",
+    confirmLabel: "",
+    onConfirm: null,
+  });
 
-  const handleOpenCreateModal = () => {
+  const closeConfirm = () =>
+    setConfirmState((prev) => ({ ...prev, isOpen: false, onConfirm: null }));
+
+  const openCreateModal = () => {
+    submitLockRef.current = false;
+    setIsSubmitting(false);
     setEditingOrder(null);
-    setIsOrderModalOpen(true);
+    setOrderForm(createEmptyOrderForm());
+    const firstAvailable = dishes.find((d) => d.disponible && d.stock > 0);
+    setSelectedDishId(firstAvailable ? String(firstAvailable.id) : "");
+    setSelectedQty(1);
+    setFormErrors({});
+    setIsModalOpen(true);
   };
 
-  const handleOpenEditModal = (order) => {
+  const openEditModal = (order) => {
+    submitLockRef.current = false;
+    setIsSubmitting(false);
     setEditingOrder(order);
-    setIsOrderModalOpen(true);
+    setOrderForm({
+      client: order.client || "",
+      telephone: order.telephone || "",
+      email: order.email || "",
+      date: order.date || new Date().toISOString().slice(0, 10),
+      statut: order.statut || "En attente",
+      plats: (order.plats || []).map((item) => ({ ...item })),
+    });
+    const firstAvailable = dishes.find((d) => d.disponible && d.stock > 0);
+    setSelectedDishId(firstAvailable ? String(firstAvailable.id) : "");
+    setSelectedQty(1);
+    setFormErrors({});
+    setIsModalOpen(true);
   };
 
-  const handleCloseOrderModal = () => {
-    setIsOrderModalOpen(false);
+  const closeModal = () => {
+    submitLockRef.current = false;
+    setIsSubmitting(false);
+    setIsModalOpen(false);
     setEditingOrder(null);
+    setFormErrors({});
   };
 
-  const handleSaveOrder = (payload) => {
-    const result = editingOrder
-      ? updateOrder(editingOrder.id, payload)
-      : createOrder(payload);
-
-    if (result.ok) {
-      setFeedback({ type: "success", text: result.message });
-    }
-    return result;
-  };
-
-  const handleStatusChange = (orderId, nextStatus) => {
-    const result = updateOrderStatus(orderId, nextStatus);
-    if (result.ok) {
-      setFeedback({ type: "success", text: result.message });
-      if (detailOrder && detailOrder.id === orderId) {
-        setDetailOrder((prev) =>
-          prev
-            ? {
-                ...prev,
-                statut: nextStatus,
-                stockDeducted: isCommittedStatus(nextStatus),
-              }
-            : null
+  const handleFieldChange = (e) => {
+    const { name, value } = e.target;
+    setOrderForm((prev) => {
+      const updated = { ...prev, [name]: value };
+      if (name === "client") {
+        const matched = customers.find(
+          (c) => c.nom.toLowerCase() === value.trim().toLowerCase()
         );
+        if (matched) {
+          if (!prev.telephone && matched.telephone) {
+            updated.telephone = matched.telephone;
+          }
+          if (!prev.email && matched.email) {
+            updated.email = matched.email;
+          }
+        }
       }
-    } else {
-      setFeedback({ type: "error", text: result.error });
+      return updated;
+    });
+
+    if (formErrors[name]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
     }
   };
 
-  const handleCancelOrder = (orderId) => {
-    handleStatusChange(orderId, "Annulée");
-  };
-
-  const handleConfirmDeleteOrder = () => {
-    if (!orderToDelete) return;
-    const deletedId = orderToDelete.id;
-    const hadReservedStock =
-      orderToDelete.stockDeducted && orderToDelete.statut !== "Livrée";
-    deleteOrder(deletedId);
-    if (detailOrder && detailOrder.id === deletedId) {
-      setDetailOrder(null);
+  const handleAddDishToOrder = () => {
+    const dish = dishes.find((d) => String(d.id) === String(selectedDishId));
+    if (!dish) {
+      setFormErrors((prev) => ({
+        ...prev,
+        plats: "Veuillez sélectionner un plat valide.",
+      }));
+      return;
     }
-    setOrderToDelete(null);
-    setFeedback({
-      type: "success",
-      text: hadReservedStock
-        ? `Commande #${deletedId} supprimée et stock réservé restauré.`
-        : `Commande #${deletedId} supprimée.`,
+
+    const qtyToAdd = Math.floor(Number(selectedQty));
+    if (!Number.isInteger(qtyToAdd) || qtyToAdd < 1) {
+      setFormErrors((prev) => ({
+        ...prev,
+        plats: "La quantité doit être un entier supérieur ou égal à 1.",
+      }));
+      return;
+    }
+
+    const alreadyReserved =
+      editingOrder && editingOrder.stockDeducted
+        ? (editingOrder.plats || [])
+            .filter((p) => p.dishId === dish.id)
+            .reduce((sum, p) => sum + Number(p.quantite), 0)
+        : 0;
+    const maxStock = Math.max(0, Number(dish.stock) || 0) + alreadyReserved;
+
+    const existingIndex = orderForm.plats.findIndex(
+      (p) => p.dishId === dish.id
+    );
+    const currentLineQty =
+      existingIndex !== -1 ? orderForm.plats[existingIndex].quantite : 0;
+
+    if (currentLineQty + qtyToAdd > maxStock) {
+      setFormErrors((prev) => ({
+        ...prev,
+        plats: `Stock insuffisant pour « ${dish.nom} » (${maxStock} portion(s) disponible(s)).`,
+      }));
+      return;
+    }
+
+    setOrderForm((prev) => {
+      const nextPlats = [...prev.plats];
+      if (existingIndex !== -1) {
+        nextPlats[existingIndex] = {
+          ...nextPlats[existingIndex],
+          quantite: nextPlats[existingIndex].quantite + qtyToAdd,
+        };
+      } else {
+        nextPlats.push({
+          dishId: dish.id,
+          nom: dish.nom,
+          quantite: qtyToAdd,
+          prix: Number(dish.prix),
+        });
+      }
+      return { ...prev, plats: nextPlats };
+    });
+
+    setSelectedQty(1);
+    setFormErrors((prev) => {
+      const next = { ...prev };
+      delete next.plats;
+      return next;
     });
   };
 
-  const handleResetFilters = () => {
-    setSearchOrderQuery("");
-    setSearchClient("");
-    setSelectedStatus("Toutes");
-    setSelectedDate("");
+  const handleItemQtyChange = (dishId, nextQtyRaw) => {
+    const nextQty = Math.floor(Number(nextQtyRaw));
+    if (!Number.isInteger(nextQty) || nextQty < 1) {
+      setFormErrors((prev) => ({
+        ...prev,
+        plats: "La quantité d'un article doit être au moins égale à 1.",
+      }));
+      return;
+    }
+
+    const dish = dishes.find((d) => d.id === dishId);
+    const alreadyReserved =
+      editingOrder && editingOrder.stockDeducted
+        ? (editingOrder.plats || [])
+            .filter((p) => p.dishId === dishId)
+            .reduce((sum, p) => sum + Number(p.quantite), 0)
+        : 0;
+    const maxStock =
+      (dish ? Math.max(0, Number(dish.stock) || 0) : 0) + alreadyReserved;
+
+    if (nextQty > maxStock) {
+      setFormErrors((prev) => ({
+        ...prev,
+        plats: `Stock insuffisant pour « ${
+          dish ? dish.nom : "ce plat"
+        } » (${maxStock} max).`,
+      }));
+      return;
+    }
+
+    setOrderForm((prev) => ({
+      ...prev,
+      plats: prev.plats.map((item) =>
+        item.dishId === dishId ? { ...item, quantite: nextQty } : item
+      ),
+    }));
+
+    setFormErrors((prev) => {
+      const next = { ...prev };
+      delete next.plats;
+      return next;
+    });
+  };
+
+  const handleRemoveOrderItem = (dishId) => {
+    setOrderForm((prev) => ({
+      ...prev,
+      plats: prev.plats.filter((item) => item.dishId !== dishId),
+    }));
+  };
+
+  const handleOrderSubmit = (e) => {
+    e.preventDefault();
+    if (submitLockRef.current || isSubmitting) return;
+
+    const validation = validateOrderForm(orderForm, dishes, editingOrder);
+    if (!validation.isValid) {
+      setFormErrors(validation.errors);
+      return;
+    }
+
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+
+    const result = editingOrder
+      ? updateOrder(editingOrder.id, validation.sanitized)
+      : createOrder(validation.sanitized);
+
+    if (!result || !result.ok) {
+      setFormErrors(result?.errors || { plats: result?.error });
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+      return;
+    }
+
+    setFeedback({ type: "success", text: result.message });
+    closeModal();
+  };
+
+  const handleStatusChangeRequest = (orderId, nextStatus) => {
+    if (nextStatus === "Annulée") {
+      setConfirmState({
+        isOpen: true,
+        eyebrow: "ANNULATION DE COMMANDE",
+        title: `Annuler la commande #${orderId} ?`,
+        message:
+          "L'annulation est définitive et restaurera automatiquement les portions réservées en stock.",
+        confirmLabel: "Confirmer l'annulation",
+        onConfirm: () => {
+          const res = updateOrderStatus(orderId, "Annulée");
+          setFeedback({
+            type: res.ok ? "success" : "error",
+            text: res.ok ? res.message : res.error,
+          });
+          closeConfirm();
+        },
+      });
+      return;
+    }
+
+    const res = updateOrderStatus(orderId, nextStatus);
+    setFeedback({
+      type: res.ok ? "success" : "error",
+      text: res.ok ? res.message : res.error,
+    });
+  };
+
+  const handleDeleteOrderRequest = (orderId) => {
+    setConfirmState({
+      isOpen: true,
+      eyebrow: "SUPPRESSION DE COMMANDE",
+      title: `Supprimer la commande #${orderId} ?`,
+      message:
+        "Voulez-vous vraiment supprimer cette commande de l'historique ? Si elle n'était pas livrée, son stock sera restauré.",
+      confirmLabel: "Supprimer la commande",
+      onConfirm: () => {
+        deleteOrder(orderId);
+        setFeedback({
+          type: "success",
+          text: `La commande #${orderId} a été supprimée.`,
+        });
+        closeConfirm();
+      },
+    });
   };
 
   const filteredOrders = orders.filter((order) => {
     const matchesStatus =
       selectedStatus === "Toutes" || order.statut === selectedStatus;
-
-    const clientTerm = searchClient.trim().toLowerCase();
-    const matchesClient =
-      !clientTerm ||
-      order.client.toLowerCase().includes(clientTerm) ||
-      (order.telephone || "").toLowerCase().includes(clientTerm);
-
-    const orderTerm = searchOrderQuery.trim().toLowerCase().replace(/^#/, "");
-    const matchesOrder =
-      !orderTerm ||
-      String(order.id).toLowerCase().includes(orderTerm) ||
-      (order.plats || []).some((p) =>
-        p.nom.toLowerCase().includes(orderTerm)
-      );
-
-    const matchesDate = !selectedDate || order.date === selectedDate;
-
-    return matchesStatus && matchesClient && matchesOrder && matchesDate;
+    const matchesClient = order.client
+      .toLowerCase()
+      .includes(searchClient.trim().toLowerCase());
+    return matchesStatus && matchesClient;
   });
 
   const filteredAmount = filteredOrders.reduce(
@@ -146,23 +328,18 @@ export default function Commandes({
     0
   );
 
-  const hasActiveFilters =
-    Boolean(searchOrderQuery) ||
-    Boolean(searchClient) ||
-    selectedStatus !== "Toutes" ||
-    Boolean(selectedDate);
+  const liveFormTotal = orderForm.plats.reduce(
+    (sum, item) => sum + Number(item.prix) * Number(item.quantite),
+    0
+  );
 
   return (
     <div className="velora-page velora-shell">
       <div className="velora-page-header">
         <div>
-          <span className="velora-eyebrow velora-reveal-1">
-            SERVICE & SALLE
-          </span>
-          <h1 className="velora-page-title velora-reveal-2">
-            Gestion des Commandes
-          </h1>
-          <p className="velora-page-subtitle velora-reveal-3">
+          <span className="velora-eyebrow">SERVICE & SALLE</span>
+          <h1 className="velora-page-title">Gestion des Commandes</h1>
+          <p className="velora-page-subtitle">
             {filteredOrders.length} commande
             {filteredOrders.length > 1 ? "s" : ""} affichée
             {filteredOrders.length > 1 ? "s" : ""} • Montant cumulé :{" "}
@@ -170,30 +347,28 @@ export default function Commandes({
           </p>
         </div>
 
-        <button
-          type="button"
-          className="velora-btn velora-btn-gold velora-reveal-3"
-          onClick={handleOpenCreateModal}
-        >
-          + Nouvelle Commande
-        </button>
-      </div>
-
-      {/* FEEDBACK BANNER */}
-      {feedback && (
-        <div
-          className={`velora-alert-banner ${
-            feedback.type === "error" ? "is-error" : "is-success"
-          } mb-4`}
-          role="status"
-        >
-          <span>
-            {feedback.type === "error" ? "⚠ " : "✦ "}
-            {feedback.text}
-          </span>
+        {typeof createOrder === "function" && (
           <button
             type="button"
-            className="velora-alert-close"
+            className="velora-btn velora-btn-gold"
+            onClick={openCreateModal}
+          >
+            + Nouvelle Commande
+          </button>
+        )}
+      </div>
+
+      {feedback && (
+        <div
+          className={`velora-feedback-banner ${
+            feedback.type === "error" ? "is-error" : "is-success"
+          }`}
+          role="alert"
+        >
+          <span>{feedback.text}</span>
+          <button
+            type="button"
+            className="velora-feedback-close"
             onClick={() => setFeedback(null)}
             aria-label="Fermer la notification"
           >
@@ -202,48 +377,13 @@ export default function Commandes({
         </div>
       )}
 
-      {/* SEARCH & MULTI-CRITERIA FILTERS */}
-      <div className="velora-orders-filters-panel mb-4">
-        <div className="row g-3 align-items-center mb-3">
-          <div className="col-md-4">
-            <SearchBar
-              value={searchOrderQuery}
-              onChange={setSearchOrderQuery}
-              placeholder="Rechercher N° commande (#1001) ou plat..."
-            />
-          </div>
-
-          <div className="col-md-4">
-            <SearchBar
-              value={searchClient}
-              onChange={setSearchClient}
-              placeholder="Rechercher par nom de client..."
-            />
-          </div>
-
-          <div className="col-md-4 d-flex gap-2 align-items-center">
-            <label htmlFor="filter-order-date" className="visually-hidden">
-              Filtrer par date
-            </label>
-            <input
-              id="filter-order-date"
-              type="date"
-              className="velora-input velora-date-input"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              aria-label="Filtrer par date"
-            />
-            {hasActiveFilters && (
-              <button
-                type="button"
-                className="velora-btn velora-btn-outline-sm"
-                onClick={handleResetFilters}
-                style={{ whiteSpace: "nowrap" }}
-              >
-                Réinitialiser
-              </button>
-            )}
-          </div>
+      <div className="velora-toolbar">
+        <div className="velora-toolbar-search">
+          <SearchBar
+            value={searchClient}
+            onChange={setSearchClient}
+            placeholder="Rechercher par nom de client..."
+          />
         </div>
 
         <div
@@ -273,18 +413,21 @@ export default function Commandes({
         </div>
       </div>
 
-      {/* ORDERS GRID */}
       {filteredOrders.length > 0 ? (
         <div className="velora-orders-grid">
           {filteredOrders.map((order) => (
             <OrderCard
               key={order.id}
               order={order}
-              onStatusChange={handleStatusChange}
-              onEdit={handleOpenEditModal}
-              onViewDetails={setDetailOrder}
-              onCancel={handleCancelOrder}
-              onDelete={setOrderToDelete}
+              onEdit={
+                typeof updateOrder === "function" &&
+                order.statut !== "Annulée" &&
+                order.statut !== "Livrée"
+                  ? () => openEditModal(order)
+                  : undefined
+              }
+              onStatusChange={handleStatusChangeRequest}
+              onDelete={handleDeleteOrderRequest}
             />
           ))}
         </div>
@@ -294,49 +437,38 @@ export default function Commandes({
             ✦
           </div>
           <h3>Aucune commande trouvée</h3>
-          <p>
-            Aucune commande ne correspond à vos critères de recherche actuels.
-          </p>
-          <div className="d-flex justify-content-center gap-2 flex-wrap">
-            {hasActiveFilters && (
-              <button
-                type="button"
-                className="velora-btn velora-btn-outline"
-                onClick={handleResetFilters}
-              >
-                Afficher toutes les commandes
-              </button>
-            )}
-            <button
-              type="button"
-              className="velora-btn velora-btn-gold"
-              onClick={handleOpenCreateModal}
-            >
-              + Créer une commande
-            </button>
-          </div>
+          <p>Aucune commande ne correspond à vos critères actuels.</p>
+          <button
+            type="button"
+            className="velora-btn velora-btn-outline"
+            onClick={() => {
+              setSearchClient("");
+              setSelectedStatus("Toutes");
+            }}
+          >
+            Afficher toutes les commandes
+          </button>
         </div>
       )}
 
-      {/* CREATE / EDIT ORDER MODAL */}
-      <OrderFormModal
-        isOpen={isOrderModalOpen}
-        editingOrder={editingOrder}
-        dishes={dishes}
-        customers={customers}
-        onClose={handleCloseOrderModal}
-        onSubmitOrder={handleSaveOrder}
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        eyebrow={confirmState.eyebrow}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmLabel={confirmState.confirmLabel}
+        onConfirm={() => confirmState.onConfirm && confirmState.onConfirm()}
+        onCancel={closeConfirm}
       />
 
-      {/* ORDER DETAILS MODAL */}
-      {detailOrder &&
+      {isModalOpen &&
         createPortal(
           <div
             className="velora-modal-backdrop"
-            onClick={() => setDetailOrder(null)}
+            onClick={closeModal}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="velora-detail-modal-title"
+            aria-labelledby="velora-order-modal-title"
           >
             <div
               className="velora-modal-card"
@@ -345,158 +477,292 @@ export default function Commandes({
               <div className="velora-modal-header">
                 <div>
                   <span className="velora-eyebrow mb-1">
-                    DÉTAILS DE LA COMMANDE
+                    {editingOrder ? "MODIFICATION" : "NOUVELLE COMMANDE"}
                   </span>
                   <h2
-                    id="velora-detail-modal-title"
+                    id="velora-order-modal-title"
                     className="velora-modal-title"
                   >
-                    Commande #{detailOrder.id} — {detailOrder.client}
+                    {editingOrder
+                      ? `Modifier la commande #${editingOrder.id}`
+                      : "Enregistrer une Commande"}
                   </h2>
                 </div>
                 <button
                   type="button"
                   className="velora-modal-close"
-                  onClick={() => setDetailOrder(null)}
-                  aria-label="Fermer les détails"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="row g-3 mb-3">
-                <div className="col-sm-4">
-                  <div className="velora-order-total-label">Date</div>
-                  <div className="text-ivory">{detailOrder.date}</div>
-                </div>
-                <div className="col-sm-4">
-                  <div className="velora-order-total-label">Statut</div>
-                  <div className="text-gold fw-semibold">
-                    {detailOrder.statut}
-                  </div>
-                </div>
-                <div className="col-sm-4">
-                  <div className="velora-order-total-label">Contact / Table</div>
-                  <div className="text-ivory">
-                    {detailOrder.telephone || "Non renseigné"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="table-responsive mb-3">
-                <table className="velora-table">
-                  <thead>
-                    <tr>
-                      <th>Plat</th>
-                      <th>Prix Unitaire</th>
-                      <th>Quantité</th>
-                      <th>Sous-total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(detailOrder.plats || []).map((item, idx) => (
-                      <tr key={`${detailOrder.id}-det-${idx}`}>
-                        <td className="text-ivory fw-semibold">{item.nom}</td>
-                        <td className="text-gold">{item.prix} DT</td>
-                        <td>{item.quantite}</td>
-                        <td className="text-ivory fw-semibold">
-                          {Number(item.prix) * Number(item.quantite)} DT
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="velora-order-summary-bar">
-                <div>
-                  <div className="velora-order-total-label">
-                    Gestion du Stock
-                  </div>
-                  <div className="text-ivory" style={{ fontSize: "0.86rem" }}>
-                    {detailOrder.stockDeducted
-                      ? "Stock déduit et synchronisé"
-                      : detailOrder.statut === "Annulée"
-                      ? "Stock restauré suite à l'annulation"
-                      : "En attente de confirmation"}
-                  </div>
-                </div>
-                <div
-                  className="velora-order-total-value"
-                  style={{ fontSize: "1.6rem" }}
-                >
-                  Total : {getOrderTotal(detailOrder)} DT
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {/* DELETE CONFIRMATION MODAL */}
-      {orderToDelete &&
-        createPortal(
-          <div
-            className="velora-modal-backdrop"
-            onClick={() => setOrderToDelete(null)}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="velora-delete-modal-title"
-          >
-            <div
-              className="velora-modal-card"
-              style={{ maxWidth: "500px" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="velora-modal-header">
-                <div>
-                  <span className="velora-eyebrow mb-1">CONFIRMATION</span>
-                  <h2
-                    id="velora-delete-modal-title"
-                    className="velora-modal-title"
-                  >
-                    Supprimer la Commande #{orderToDelete.id} ?
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  className="velora-modal-close"
-                  onClick={() => setOrderToDelete(null)}
+                  onClick={closeModal}
                   aria-label="Fermer"
                 >
                   ×
                 </button>
               </div>
 
-              <p className="text-ivory mb-2">
-                Client : <strong>{orderToDelete.client}</strong> • Total :{" "}
-                <strong className="text-gold">
-                  {getOrderTotal(orderToDelete)} DT
-                </strong>
-              </p>
-              <p className="velora-page-subtitle mb-4">
-                {orderToDelete.stockDeducted &&
-                orderToDelete.statut !== "Livrée"
-                  ? "Cette commande est active : sa suppression restaurera automatiquement les quantités réservées en stock."
-                  : "Cette action est définitive."}
-              </p>
+              <form onSubmit={handleOrderSubmit} noValidate>
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <label htmlFor="order-client" className="velora-label">
+                      Nom du client *
+                    </label>
+                    <input
+                      id="order-client"
+                      type="text"
+                      name="client"
+                      list="velora-customers-list"
+                      maxLength={80}
+                      aria-invalid={Boolean(formErrors.client)}
+                      className={`velora-input ${
+                        formErrors.client ? "is-invalid" : ""
+                      }`}
+                      placeholder="Ex: Amine Ben Ali"
+                      value={orderForm.client}
+                      onChange={handleFieldChange}
+                    />
+                    <datalist id="velora-customers-list">
+                      {customers.map((c) => (
+                        <option key={c.id} value={c.nom} />
+                      ))}
+                    </datalist>
+                    {formErrors.client && (
+                      <div className="velora-error-msg">{formErrors.client}</div>
+                    )}
+                  </div>
 
-              <div className="d-flex justify-content-end gap-2">
-                <button
-                  type="button"
-                  className="velora-btn velora-btn-outline"
-                  onClick={() => setOrderToDelete(null)}
-                >
-                  Conserver
-                </button>
-                <button
-                  type="button"
-                  className="velora-btn velora-btn-gold"
-                  onClick={handleConfirmDeleteOrder}
-                >
-                  Confirmer la suppression
-                </button>
-              </div>
+                  <div className="col-md-6">
+                    <label htmlFor="order-telephone" className="velora-label">
+                      Téléphone *
+                    </label>
+                    <input
+                      id="order-telephone"
+                      type="tel"
+                      name="telephone"
+                      maxLength={30}
+                      aria-invalid={Boolean(formErrors.telephone)}
+                      className={`velora-input ${
+                        formErrors.telephone ? "is-invalid" : ""
+                      }`}
+                      placeholder="Ex: +216 22 345 678"
+                      value={orderForm.telephone}
+                      onChange={handleFieldChange}
+                    />
+                    {formErrors.telephone && (
+                      <div className="velora-error-msg">
+                        {formErrors.telephone}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="col-md-5">
+                    <label htmlFor="order-email" className="velora-label">
+                      E-mail (Optionnel)
+                    </label>
+                    <input
+                      id="order-email"
+                      type="email"
+                      name="email"
+                      maxLength={120}
+                      aria-invalid={Boolean(formErrors.email)}
+                      className={`velora-input ${
+                        formErrors.email ? "is-invalid" : ""
+                      }`}
+                      placeholder="client@velora.tn"
+                      value={orderForm.email}
+                      onChange={handleFieldChange}
+                    />
+                    {formErrors.email && (
+                      <div className="velora-error-msg">{formErrors.email}</div>
+                    )}
+                  </div>
+
+                  <div className="col-md-3">
+                    <label htmlFor="order-date" className="velora-label">
+                      Date *
+                    </label>
+                    <input
+                      id="order-date"
+                      type="date"
+                      name="date"
+                      aria-invalid={Boolean(formErrors.date)}
+                      className={`velora-input ${
+                        formErrors.date ? "is-invalid" : ""
+                      }`}
+                      value={orderForm.date}
+                      onChange={handleFieldChange}
+                    />
+                    {formErrors.date && (
+                      <div className="velora-error-msg">{formErrors.date}</div>
+                    )}
+                  </div>
+
+                  <div className="col-md-4">
+                    <label htmlFor="order-statut" className="velora-label">
+                      Statut *
+                    </label>
+                    <select
+                      id="order-statut"
+                      name="statut"
+                      className="velora-input"
+                      value={orderForm.statut}
+                      onChange={handleFieldChange}
+                    >
+                      {ORDER_STATUSES.map((st) => (
+                        <option key={st} value={st}>
+                          {st}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-12">
+                    <label htmlFor="order-dish-select" className="velora-label">
+                      Sélection des plats *
+                    </label>
+                    <div className="velora-upload-row">
+                      <select
+                        id="order-dish-select"
+                        className="velora-input"
+                        value={selectedDishId}
+                        onChange={(e) => setSelectedDishId(e.target.value)}
+                      >
+                        <option value="">-- Choisir un plat --</option>
+                        {dishes.map((dish) => {
+                          const reserved =
+                            editingOrder && editingOrder.stockDeducted
+                              ? (editingOrder.plats || [])
+                                  .filter((p) => p.dishId === dish.id)
+                                  .reduce(
+                                    (sum, p) => sum + Number(p.quantite),
+                                    0
+                                  )
+                              : 0;
+                          const effectiveStock =
+                            Math.max(0, Number(dish.stock) || 0) + reserved;
+
+                          return (
+                            <option
+                              key={dish.id}
+                              value={dish.id}
+                              disabled={effectiveStock <= 0}
+                            >
+                              {dish.nom} — {dish.prix} DT (
+                              {effectiveStock > 0
+                                ? `Stock : ${effectiveStock}`
+                                : "Épuisé"}
+                              )
+                            </option>
+                          );
+                        })}
+                      </select>
+
+                      <input
+                        type="number"
+                        min="1"
+                        max="99"
+                        step="1"
+                        aria-label="Quantité"
+                        className="velora-input"
+                        style={{ maxWidth: "96px" }}
+                        value={selectedQty}
+                        onChange={(e) => setSelectedQty(e.target.value)}
+                      />
+
+                      <button
+                        type="button"
+                        className="velora-upload-btn"
+                        onClick={handleAddDishToOrder}
+                      >
+                        + Ajouter
+                      </button>
+                    </div>
+
+                    {formErrors.plats && (
+                      <div className="velora-error-msg">{formErrors.plats}</div>
+                    )}
+
+                    {orderForm.plats.length > 0 && (
+                      <div className="velora-preset-box mt-3">
+                        <ul className="velora-order-list">
+                          {orderForm.plats.map((item) => (
+                            <li
+                              key={item.dishId}
+                              className="velora-order-item py-1"
+                            >
+                              <div className="velora-order-item-info">
+                                <span className="velora-order-dish-name">
+                                  {item.nom}
+                                </span>
+                                <span className="text-gold">
+                                  ({item.prix} DT)
+                                </span>
+                              </div>
+                              <div className="d-flex align-items-center gap-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="99"
+                                  step="1"
+                                  aria-label={`Quantité pour ${item.nom}`}
+                                  className="velora-select-sm"
+                                  style={{ width: "68px" }}
+                                  value={item.quantite}
+                                  onChange={(e) =>
+                                    handleItemQtyChange(
+                                      item.dishId,
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                                <span className="velora-order-item-price">
+                                  {item.prix * item.quantite} DT
+                                </span>
+                                <button
+                                  type="button"
+                                  className="velora-btn-icon-danger"
+                                  onClick={() =>
+                                    handleRemoveOrderItem(item.dishId)
+                                  }
+                                  aria-label={`Retirer ${item.nom}`}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="d-flex justify-content-between align-items-center pt-2 mt-2 border-top border-secondary">
+                          <span className="velora-order-total-label">
+                            Total calculé
+                          </span>
+                          <span className="velora-order-total-value">
+                            {liveFormTotal} DT
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="col-12 pt-2 d-flex justify-content-end gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      className="velora-btn velora-btn-outline"
+                      onClick={closeModal}
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="submit"
+                      className="velora-btn velora-btn-gold"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting
+                        ? "Enregistrement..."
+                        : editingOrder
+                        ? "Enregistrer les modifications"
+                        : "Valider la Commande"}
+                    </button>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>,
           document.body

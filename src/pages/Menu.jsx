@@ -2,8 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useSearchParams } from "react-router-dom";
 import { CATEGORIES, initialDishes } from "../data/initialData";
+import {
+  validateDishForm,
+  validateImageFile,
+  getSafeImageSrc,
+} from "../utils/validation";
 import SearchBar from "../components/SearchBar";
 import DishCard from "../components/DishCard";
+import ConfirmModal from "../components/ConfirmModal";
 
 const PRESET_IMAGES = initialDishes.slice(0, 6).map((d) => ({
   label: d.nom,
@@ -12,10 +18,9 @@ const PRESET_IMAGES = initialDishes.slice(0, 6).map((d) => ({
 
 const readAndCompressImage = (file) =>
   new Promise((resolve, reject) => {
-    if (!file || !file.type.startsWith("image/")) {
-      reject(
-        new Error("Veuillez sélectionner un fichier image valide (JPG, PNG, WEBP).")
-      );
+    const fileCheck = validateImageFile(file);
+    if (!fileCheck.valid) {
+      reject(new Error(fileCheck.error));
       return;
     }
 
@@ -34,7 +39,8 @@ const readAndCompressImage = (file) =>
 
         resolve(canvas.toDataURL("image/jpeg", 0.82));
       };
-      img.onerror = () => reject(new Error("Impossible de charger cette image."));
+      img.onerror = () =>
+        reject(new Error("Impossible de décoder ce fichier image."));
       img.src = event.target.result;
     };
     reader.onerror = () =>
@@ -46,13 +52,15 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get("categorie");
   const fileInputRef = useRef(null);
+  const editLockRef = useRef(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(
     CATEGORIES.includes(initialCategory) ? initialCategory : "Toutes"
   );
+  const [feedback, setFeedback] = useState(null);
+  const [dishToDelete, setDishToDelete] = useState(null);
 
-  // Edit modal state
   const [editingDish, setEditingDish] = useState(null);
   const [editForm, setEditForm] = useState({
     nom: "",
@@ -64,6 +72,7 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
   });
   const [editFileName, setEditFileName] = useState("");
   const [editErrors, setEditErrors] = useState({});
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   useEffect(() => {
     const paramCat = searchParams.get("categorie");
@@ -106,15 +115,25 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
     setSearchParams({});
   };
 
-  const handleDelete = (dishId) => {
+  const requestDeleteDish = (dishId) => {
     const target = dishes.find((d) => d.id === dishId);
-    const label = target ? `« ${target.nom} »` : "ce plat";
-    if (window.confirm(`Voulez-vous vraiment supprimer ${label} du menu ?`)) {
-      deleteDish(dishId);
-    }
+    if (!target) return;
+    setDishToDelete(target);
+  };
+
+  const confirmDeleteDish = () => {
+    if (!dishToDelete) return;
+    deleteDish(dishToDelete.id);
+    setFeedback({
+      type: "success",
+      text: `Le plat « ${dishToDelete.nom} » a été supprimé du menu.`,
+    });
+    setDishToDelete(null);
   };
 
   const handleOpenEdit = (dish) => {
+    editLockRef.current = false;
+    setIsSavingEdit(false);
     setEditingDish(dish);
     setEditForm({
       nom: dish.nom,
@@ -129,6 +148,8 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
   };
 
   const handleCloseEdit = () => {
+    editLockRef.current = false;
+    setIsSavingEdit(false);
     setEditingDish(null);
     setEditFileName("");
     setEditErrors({});
@@ -168,60 +189,41 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
       }
     } catch (err) {
       setEditErrors((prev) => ({ ...prev, image: err.message }));
+    } finally {
+      e.target.value = "";
     }
-  };
-
-  const validateEdit = () => {
-    const nextErrors = {};
-
-    if (!editForm.nom.trim()) {
-      nextErrors.nom = "Le nom du plat est obligatoire.";
-    } else if (editForm.nom.trim().length < 2) {
-      nextErrors.nom = "Le nom doit contenir au moins 2 caractères.";
-    }
-
-    if (!editForm.categorie || !CATEGORIES.includes(editForm.categorie)) {
-      nextErrors.categorie = "Veuillez sélectionner une catégorie valide.";
-    }
-
-    if (!editForm.description.trim()) {
-      nextErrors.description = "La description est obligatoire.";
-    } else if (editForm.description.trim().length < 10) {
-      nextErrors.description =
-        "La description doit comporter au moins 10 caractères.";
-    }
-
-    const numericPrice = Number(editForm.prix);
-    if (editForm.prix === "" || Number.isNaN(numericPrice)) {
-      nextErrors.prix = "Veuillez saisir un prix valide.";
-    } else if (numericPrice <= 0) {
-      nextErrors.prix = "Le prix doit être strictement supérieur à 0 DT.";
-    }
-
-    const numericStock = Number(editForm.stock);
-    if (editForm.stock === "" || Number.isNaN(numericStock)) {
-      nextErrors.stock = "Veuillez saisir une quantité en stock.";
-    } else if (!Number.isInteger(numericStock) || numericStock < 0) {
-      nextErrors.stock =
-        "Le stock doit être un nombre entier positif ou égal à 0.";
-    }
-
-    if (!editForm.image.trim()) {
-      nextErrors.image =
-        "Veuillez importer un fichier image ou saisir une URL.";
-    }
-
-    setEditErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
   };
 
   const handleEditSubmit = (e) => {
     e.preventDefault();
-    if (!editingDish || !validateEdit()) return;
+    if (!editingDish || editLockRef.current || isSavingEdit) return;
 
-    updateDish({
+    const validation = validateDishForm(editForm);
+    if (!validation.isValid) {
+      setEditErrors(validation.errors);
+      return;
+    }
+
+    editLockRef.current = true;
+    setIsSavingEdit(true);
+
+    const result = updateDish({
       id: editingDish.id,
-      ...editForm,
+      ...validation.sanitized,
+    });
+
+    if (result && result.ok === false) {
+      setEditErrors(result.errors || {});
+      editLockRef.current = false;
+      setIsSavingEdit(false);
+      return;
+    }
+
+    setFeedback({
+      type: "success",
+      text:
+        result?.message ||
+        `Le plat « ${validation.sanitized.nom} » a été mis à jour.`,
     });
     handleCloseEdit();
   };
@@ -264,7 +266,25 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
         </Link>
       </div>
 
-      {/* SEARCH & CATEGORY FILTER BAR */}
+      {feedback && (
+        <div
+          className={`velora-feedback-banner ${
+            feedback.type === "error" ? "is-error" : "is-success"
+          }`}
+          role="status"
+        >
+          <span>{feedback.text}</span>
+          <button
+            type="button"
+            className="velora-feedback-close"
+            onClick={() => setFeedback(null)}
+            aria-label="Fermer la notification"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <div className="velora-toolbar">
         <div className="velora-toolbar-search">
           <SearchBar
@@ -295,7 +315,6 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
         </div>
       </div>
 
-      {/* RESULTS GRID OR EMPTY STATE */}
       {filteredDishes.length > 0 ? (
         <div className="velora-dishes-grid">
           {filteredDishes.map((dish) => (
@@ -303,7 +322,7 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
               key={dish.id}
               dish={dish}
               onEdit={handleOpenEdit}
-              onDelete={handleDelete}
+              onDelete={requestDeleteDish}
             />
           ))}
         </div>
@@ -331,7 +350,20 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
         </div>
       )}
 
-      {/* VIEWPORT-CENTERED LIQUID GLASS EDIT MODAL (PORTAL) */}
+      <ConfirmModal
+        isOpen={Boolean(dishToDelete)}
+        eyebrow="SUPPRESSION DU MENU"
+        title="Confirmer la suppression"
+        message={
+          dishToDelete
+            ? `Voulez-vous vraiment retirer « ${dishToDelete.nom} » de la carte VELORA ? Cette action est irréversible.`
+            : ""
+        }
+        confirmLabel="Supprimer le plat"
+        onConfirm={confirmDeleteDish}
+        onCancel={() => setDishToDelete(null)}
+      />
+
       {editingDish &&
         createPortal(
           <div
@@ -375,6 +407,8 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
                       id="edit-nom"
                       type="text"
                       name="nom"
+                      maxLength={80}
+                      aria-invalid={Boolean(editErrors.nom)}
                       className={`velora-input ${
                         editErrors.nom ? "is-invalid" : ""
                       }`}
@@ -393,6 +427,7 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
                     <select
                       id="edit-categorie"
                       name="categorie"
+                      aria-invalid={Boolean(editErrors.categorie)}
                       className={`velora-input ${
                         editErrors.categorie ? "is-invalid" : ""
                       }`}
@@ -420,6 +455,8 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
                       id="edit-description"
                       name="description"
                       rows="3"
+                      maxLength={500}
+                      aria-invalid={Boolean(editErrors.description)}
                       className={`velora-input ${
                         editErrors.description ? "is-invalid" : ""
                       }`}
@@ -442,7 +479,9 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
                       type="number"
                       name="prix"
                       min="0.5"
+                      max="10000"
                       step="0.5"
+                      aria-invalid={Boolean(editErrors.prix)}
                       className={`velora-input ${
                         editErrors.prix ? "is-invalid" : ""
                       }`}
@@ -463,7 +502,9 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
                       type="number"
                       name="stock"
                       min="0"
+                      max="9999"
                       step="1"
+                      aria-invalid={Boolean(editErrors.stock)}
                       className={`velora-input ${
                         editErrors.stock ? "is-invalid" : ""
                       }`}
@@ -484,7 +525,7 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
                         className="d-none"
                         onChange={handleEditFileUpload}
                       />
@@ -515,6 +556,7 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
                         id="edit-image"
                         type="text"
                         name="image"
+                        aria-invalid={Boolean(editErrors.image)}
                         className={`velora-input ${
                           editErrors.image ? "is-invalid" : ""
                         }`}
@@ -536,7 +578,13 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
 
                     {editForm.image && (
                       <div className="velora-modal-img-preview">
-                        <img src={editForm.image} alt="Aperçu du plat" />
+                        <img
+                          src={getSafeImageSrc(
+                            editForm.image,
+                            PRESET_IMAGES[0].src
+                          )}
+                          alt="Aperçu du plat"
+                        />
                       </div>
                     )}
 
@@ -587,8 +635,14 @@ export default function Menu({ dishes, updateDish, deleteDish }) {
                     >
                       Annuler
                     </button>
-                    <button type="submit" className="velora-btn velora-btn-gold">
-                      Enregistrer les modifications
+                    <button
+                      type="submit"
+                      className="velora-btn velora-btn-gold"
+                      disabled={isSavingEdit}
+                    >
+                      {isSavingEdit
+                        ? "Enregistrement..."
+                        : "Enregistrer les modifications"}
                     </button>
                   </div>
                 </div>
