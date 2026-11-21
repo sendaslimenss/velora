@@ -18,7 +18,7 @@ import seafoodPastaImg from "../assets/resto/Seafood Pasta.jpg";
 import ricottaRavioliImg from "../assets/resto/Ricotta Ravioli.jpg";
 import truffleRisottoImg from "../assets/resto/Truffle Risotto.jpg";
 
-// Bespoke dark-luxury SVG plates for Desserts & Boissons (offline-safe, zero broken links)
+// Visuels SVG haute gastronomie pour Desserts & Boissons (100% hors-ligne)
 const createLuxuryPlateSvg = (label, subtitle, motif) => {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
@@ -29,9 +29,9 @@ const createLuxuryPlateSvg = (label, subtitle, motif) => {
           <stop offset="100%" stop-color="#08080A"/>
         </radialGradient>
         <linearGradient id="goldStroke" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#F3D98B"/>
-          <stop offset="50%" stop-color="#C5A46D"/>
-          <stop offset="100%" stop-color="#8C6D3F"/>
+          <stop offset="0%" stop-color="#F2DFB3"/>
+          <stop offset="50%" stop-color="#D4B26A"/>
+          <stop offset="100%" stop-color="#BFA062"/>
         </linearGradient>
       </defs>
       <rect width="800" height="500" fill="url(#bgGlow)"/>
@@ -39,8 +39,8 @@ const createLuxuryPlateSvg = (label, subtitle, motif) => {
       <circle cx="400" cy="215" r="118" fill="#0D0D10" stroke="url(#goldStroke)" stroke-opacity="0.45" stroke-width="1.5"/>
       <circle cx="400" cy="215" r="98" fill="none" stroke="url(#goldStroke)" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4 6"/>
       ${motif}
-      <text x="400" y="385" text-anchor="middle" fill="#F5F1EA" font-family="Georgia, serif" font-size="24" letter-spacing="4">${label}</text>
-      <text x="400" y="416" text-anchor="middle" fill="#C5A46D" font-family="system-ui, sans-serif" font-size="12" letter-spacing="5">${subtitle}</text>
+      <text x="400" y="385" text-anchor="middle" fill="#F6F1E7" font-family="Georgia, serif" font-size="24" letter-spacing="4">${label}</text>
+      <text x="400" y="416" text-anchor="middle" fill="#D4B26A" font-family="system-ui, sans-serif" font-size="12" letter-spacing="5">${subtitle}</text>
     </svg>
   `;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
@@ -48,35 +48,32 @@ const createLuxuryPlateSvg = (label, subtitle, motif) => {
 
 const chocolateSphereImg = createLuxuryPlateSvg(
   "SPHÈRE NOIRE & OR 24K",
-  "VALRHONA GANACHE • FEUILLE D'OR",
-  `<circle cx="400" cy="215" r="46" fill="#2A1B14" stroke="#D4AF37" stroke-width="1.5"/>
-   <path d="M368 195 Q400 165 432 195" fill="none" stroke="#F3D98B" stroke-width="2"/>
-   <polygon points="400,185 408,200 400,215 392,200" fill="#D4AF37" opacity="0.85"/>`
+  "GANACHE VALRHONA • FEUILLE D'OR",
+  `<circle cx="400" cy="215" r="46" fill="#2A1B14" stroke="#D4B26A" stroke-width="1.5"/>
+   <path d="M368 195 Q400 165 432 195" fill="none" stroke="#F2DFB3" stroke-width="2"/>
+   <polygon points="400,185 408,200 400,215 392,200" fill="#D4B26A" opacity="0.85"/>`
 );
 
 const pistachioTartImg = createLuxuryPlateSvg(
   "VELOURS PISTACHE & ROSE",
   "PRALINÉ TORRÉFIÉ • ÉCLATS D'OR",
-  `<polygon points="400,162 452,215 400,268 348,215" fill="#1D261B" stroke="#D4AF37" stroke-width="1.5"/>
-   <circle cx="400" cy="215" r="22" fill="#8C6D3F" opacity="0.6"/>`
+  `<polygon points="400,162 452,215 400,268 348,215" fill="#1D261B" stroke="#D4B26A" stroke-width="1.5"/>
+   <circle cx="400" cy="215" r="22" fill="#BFA062" opacity="0.6"/>`
 );
 
 const smokedElixirImg = createLuxuryPlateSvg(
   "ÉLIXIR VELORA FUMÉ",
-  "BOURBON INFUSÉ • ÉCORCE D'ORANGE",
-  `<path d="M365 168 L435 168 L424 258 L376 258 Z" fill="#1E1610" stroke="#D4AF37" stroke-width="1.5"/>
-   <line x1="370" y1="205" x2="430" y2="205" stroke="#F3D98B" stroke-width="1.5"/>`
+  "INFUSION BOISÉE • ÉCORCE D'ORANGE",
+  `<path d="M365 168 L435 168 L424 258 L376 258 Z" fill="#1E1610" stroke="#D4B26A" stroke-width="1.5"/>
+   <line x1="370" y1="205" x2="430" y2="205" stroke="#F2DFB3" stroke-width="1.5"/>`
 );
 
 const saffronNectarImg = createLuxuryPlateSvg(
-  "NECTAR SAFRAN & BERGAMOTE",
-  "INFUSION BOTANIQUE • ZESTE DORÉ",
-  `<path d="M368 165 L432 165 L400 220 Z" fill="#241D12" stroke="#D4AF37" stroke-width="1.5"/>
-   <line x1="400" y1="220" x2="400" y2="262" stroke="#D4AF37" stroke-width="1.5"/>
-   <line x1="376" y1="262" x2="424" y2="262" stroke="#D4AF37" stroke-width="1.5"/>`
+  "NECTAR SAFRAN & CARDAMOME",
+  "INFUSION BOTANIQUE • MIEL DE FLEURS",
+  `<circle cx="400" cy="215" r="44" fill="none" stroke="#F2DFB3" stroke-width="1.5"/>
+   <polygon points="400,178 430,215 400,252 370,215" fill="#2B2112" stroke="#D4B26A" stroke-width="1.2"/>`
 );
-
-export const heroImage = noirLobsterImg;
 
 export const CATEGORIES = [
   "Entrées",
@@ -265,8 +262,8 @@ export const initialDishes = [
     nom: "Lobster Linguine",
     categorie: "Plats principaux",
     description:
-      "Linguine artisanales enrobées d'une réduction de crustacés, médaillons de homard poêlés et tomates confites.",
-    prix: 78,
+      "Linguine artisanales au homard poché, tomates cerises confites, bisque légère au basilic et huile d'olive vierge.",
+    prix: 79,
     stock: 7,
     image: lobsterLinguineImg,
     disponible: true,
@@ -276,7 +273,7 @@ export const initialDishes = [
     nom: "Nero Tagliatelle",
     categorie: "Plats principaux",
     description:
-      "Tagliatelles fraîches à l'encre de seiche, noix de pétoncles, ail doux, huile d'olive extra vierge et poutargue.",
+      "Tagliatelles fraîches à l'encre de seiche, noix de pétoncles, ail doux, vin blanc sec et zestes de citron jaune.",
     prix: 64,
     stock: 10,
     image: neroTagliatelleImg,
@@ -287,42 +284,42 @@ export const initialDishes = [
     nom: "Seafood Pasta",
     categorie: "Plats principaux",
     description:
-      "Pâtes fraîches aux fruits de mer de Méditerranée, palourdes, calamars tendres et bisque légère au basilic.",
-    prix: 59,
-    stock: 12,
+      "Pâtes fraîches aux fruits de mer de Méditerranée, palourdes, calamars snackés et émulsion fumée au safran.",
+    prix: 66,
+    stock: 9,
     image: seafoodPastaImg,
     disponible: true,
   },
   {
     id: 19,
     nom: "Ricotta Ravioli",
-    categorie: "Plats principaux",
+    categorie: "Entrées",
     description:
-      "Ravioles maison farcies à la ricotta fraîche et zeste de citron, beurre sauge noisette et pignons grillés.",
-    prix: 46,
+      "Ravioles maison farcies à la ricotta de brebis et citron confit, beurre noisette à la sauge et éclats de pistache.",
+    prix: 39,
     stock: 14,
     image: ricottaRavioliImg,
     disponible: true,
   },
   {
     id: 20,
-    nom: "Sphère Chocolat Noir & Or 24K",
+    nom: "Sphère Noire & Or 24K",
     categorie: "Desserts",
     description:
-      "Coque de chocolat grand cru Valrhona 70%, cœur fondant praliné noisette, glace vanille Bourbon et feuille d'or.",
-    prix: 28,
-    stock: 16,
+      "Dôme de chocolat noir Valrhona 70%, cœur coulant praliné noisette du Piémont, biscuit cacao et feuille d'or comestible.",
+    prix: 34,
+    stock: 12,
     image: chocolateSphereImg,
     disponible: true,
   },
   {
     id: 21,
-    nom: "Tartelette Velours Pistache & Rose",
+    nom: "Velours Pistache & Rose",
     categorie: "Desserts",
     description:
-      "Pâte sucrée au cacao noir, crème mousseline à la pistache de Bronte torréfiée et gelée délicate à l'eau de rose.",
-    prix: 26,
-    stock: 12,
+      "Tartelette croustillante à la pistache de Bronte torréfiée, ganache montée à l'eau de rose et éclats d'or.",
+    prix: 31,
+    stock: 10,
     image: pistachioTartImg,
     disponible: true,
   },
@@ -331,7 +328,7 @@ export const initialDishes = [
     nom: "Élixir Velora Fumé",
     categorie: "Boissons",
     description:
-      "Création signature sans alcool : infusion boisée fumée au bois de hêtre, réduction d'orange sanguine et sirop d'érable.",
+      "Création signature sans alcool infusée au bois de cèdre, thé noir fumé Lapsang, écorce d'orange amère et sirop d'érable.",
     prix: 22,
     stock: 20,
     image: smokedElixirImg,
@@ -339,10 +336,10 @@ export const initialDishes = [
   },
   {
     id: 23,
-    nom: "Nectar Safran & Bergamote",
+    nom: "Nectar Safran & Cardamome",
     categorie: "Boissons",
     description:
-      "Infusion glacée aux pistils de safran pur, essence de bergamote fraîche, miel de fleurs sauvages et perles pétillantes.",
+      "Infusion botanique glacée aux pistils de safran, gousses de cardamome verte, citron vert et miel de fleurs sauvages.",
     prix: 19,
     stock: 24,
     image: saffronNectarImg,
@@ -354,116 +351,144 @@ export const initialOrders = [
   {
     id: 1001,
     client: "Amine Ben Ali",
-    telephone: "+216 22 418 900",
-    plats: [
-      { dishId: 1, nom: "Noir Lobster", quantite: 2, prix: 95 },
-      { dishId: 2, nom: "Noir Foie Gras", quantite: 1, prix: 54 },
-    ],
-    total: 244,
+    telephone: "+216 22 410 890",
+    email: "amine.benali@velora.tn",
     date: "2026-11-18",
     statut: "Livrée",
     stockDeducted: true,
+    plats: [
+      { dishId: 2, nom: "Noir Foie Gras", quantite: 2, prix: 54 },
+      { dishId: 1, nom: "Noir Lobster", quantite: 2, prix: 95 },
+      { dishId: 20, nom: "Sphère Noire & Or 24K", quantite: 2, prix: 34 },
+    ],
   },
   {
     id: 1002,
-    client: "Senda Mansour",
-    telephone: "+216 55 710 342",
-    plats: [
-      { dishId: 3, nom: "Beef Wellington", quantite: 2, prix: 88 },
-      { dishId: 20, nom: "Sphère Chocolat Noir & Or 24K", quantite: 2, prix: 28 },
-    ],
-    total: 232,
-    date: "2026-11-19",
+    client: "Sarra Trabelsi",
+    telephone: "+216 55 832 104",
+    email: "sarra.trabelsi@velora.tn",
+    date: "2026-11-18",
     statut: "Livrée",
     stockDeducted: true,
+    plats: [
+      { dishId: 4, nom: "Golden Scallops", quantite: 2, prix: 49 },
+      { dishId: 3, nom: "Beef Wellington", quantite: 2, prix: 88 },
+      { dishId: 22, nom: "Élixir Velora Fumé", quantite: 2, prix: 22 },
+    ],
   },
   {
     id: 1003,
-    client: "Youssef Trabelsi",
-    telephone: "+216 98 302 119",
-    plats: [
-      { dishId: 5, nom: "Truffle Risotto", quantite: 1, prix: 62 },
-      { dishId: 4, nom: "Golden Scallops", quantite: 1, prix: 49 },
-      { dishId: 22, nom: "Élixir Velora Fumé", quantite: 2, prix: 22 },
-    ],
-    total: 155,
+    client: "Youssef Gharbi",
+    telephone: "+216 98 312 765",
+    email: "youssef.gharbi@velora.tn",
     date: "2026-11-19",
     statut: "Livrée",
     stockDeducted: true,
+    plats: [
+      { dishId: 7, nom: "Crispy Royal Shrimp", quantite: 1, prix: 44 },
+      { dishId: 11, nom: "Steak au Poivre", quantite: 2, prix: 72 },
+      { dishId: 21, nom: "Velours Pistache & Rose", quantite: 2, prix: 31 },
+    ],
   },
   {
     id: 1004,
-    client: "Leila Karoui",
-    telephone: "+216 24 881 504",
-    plats: [
-      { dishId: 16, nom: "Lobster Linguine", quantite: 2, prix: 78 },
-      { dishId: 21, nom: "Tartelette Velours Pistache & Rose", quantite: 2, prix: 26 },
-    ],
-    total: 208,
+    client: "Inès Khelifi",
+    telephone: "+216 24 709 331",
+    email: "ines.khelifi@velora.tn",
     date: "2026-11-20",
-    statut: "Prête",
+    statut: "Livrée",
     stockDeducted: true,
+    plats: [
+      { dishId: 6, nom: "Midnight Mushrooms", quantite: 2, prix: 36 },
+      { dishId: 5, nom: "Truffle Risotto", quantite: 2, prix: 62 },
+      { dishId: 17, nom: "Nero Tagliatelle", quantite: 1, prix: 64 },
+      { dishId: 23, nom: "Nectar Safran & Cardamome", quantite: 3, prix: 19 },
+    ],
   },
   {
     id: 1005,
-    client: "Karim Bouazizi",
-    telephone: "+216 50 619 772",
-    plats: [
-      { dishId: 11, nom: "Steak au Poivre", quantite: 2, prix: 72 },
-      { dishId: 6, nom: "Midnight Mushrooms", quantite: 1, prix: 36 },
-    ],
-    total: 180,
-    date: "2026-11-20",
-    statut: "En préparation",
+    client: "Mehdi Bouazizi",
+    telephone: "+216 50 619 420",
+    email: "mehdi.bouazizi@velora.tn",
+    date: "2026-11-21",
+    statut: "Livrée",
     stockDeducted: true,
+    plats: [
+      { dishId: 19, nom: "Ricotta Ravioli", quantite: 2, prix: 39 },
+      { dishId: 12, nom: "Duck à l'Orange", quantite: 2, prix: 68 },
+      { dishId: 20, nom: "Sphère Noire & Or 24K", quantite: 2, prix: 34 },
+    ],
   },
   {
     id: 1006,
-    client: "Nadia Gharbi",
-    telephone: "+216 29 945 120",
+    client: "Nour El Houda Mansour",
+    telephone: "+216 29 884 512",
+    email: "nour.mansour@velora.tn",
+    date: "2026-11-21",
+    statut: "Prête",
+    stockDeducted: true,
     plats: [
-      { dishId: 17, nom: "Nero Tagliatelle", quantite: 1, prix: 64 },
-      { dishId: 23, nom: "Nectar Safran & Bergamote", quantite: 2, prix: 19 },
+      { dishId: 8, nom: "Garlic Butter Prawns", quantite: 1, prix: 42 },
+      { dishId: 16, nom: "Lobster Linguine", quantite: 1, prix: 79 },
     ],
-    total: 102,
-    date: "2026-11-20",
-    statut: "En attente",
-    stockDeducted: false,
   },
   {
     id: 1007,
-    client: "Mehdi Chaabane",
-    telephone: "+216 92 147 830",
+    client: "Karim Jebali",
+    telephone: "+216 92 145 908",
+    email: "karim.jebali@velora.tn",
+    date: "2026-11-21",
+    statut: "En préparation",
+    stockDeducted: true,
     plats: [
-      { dishId: 12, nom: "Duck à l'Orange", quantite: 1, prix: 68 },
+      { dishId: 9, nom: "Braised Short Ribs", quantite: 2, prix: 74 },
+      { dishId: 22, nom: "Élixir Velora Fumé", quantite: 2, prix: 22 },
     ],
-    total: 68,
-    date: "2026-11-17",
-    statut: "Annulée",
-    stockDeducted: false,
   },
   {
     id: 1008,
-    client: "Inès Ben Youssef",
-    telephone: "Table 07 • +216 21 504 611",
-    plats: [
-      { dishId: 4, nom: "Golden Scallops", quantite: 2, prix: 49 },
-      { dishId: 14, nom: "Grilled Salmon", quantite: 1, prix: 58 },
-    ],
-    total: 156,
-    date: "2026-11-20",
+    client: "Salma Chaabane",
+    telephone: "+216 53 402 677",
+    email: "salma.chaabane@velora.tn",
+    date: "2026-11-21",
     statut: "Confirmée",
     stockDeducted: true,
+    plats: [
+      { dishId: 14, nom: "Grilled Salmon", quantite: 2, prix: 58 },
+      { dishId: 21, nom: "Velours Pistache & Rose", quantite: 1, prix: 31 },
+    ],
+  },
+  {
+    id: 1009,
+    client: "Tarek Masmoudi",
+    telephone: "+216 21 970 115",
+    email: "tarek.masmoudi@velora.tn",
+    date: "2026-11-21",
+    statut: "En attente",
+    stockDeducted: true,
+    plats: [
+      { dishId: 18, nom: "Seafood Pasta", quantite: 2, prix: 66 },
+      { dishId: 13, nom: "Chicken Supreme", quantite: 1, prix: 52 },
+    ],
+  },
+  {
+    id: 1010,
+    client: "Rania Ben Salah",
+    telephone: "+216 97 554 203",
+    email: "rania.bensalah@velora.tn",
+    date: "2026-11-20",
+    statut: "Annulée",
+    stockDeducted: false,
+    plats: [
+      { dishId: 3, nom: "Beef Wellington", quantite: 1, prix: 88 },
+    ],
   },
 ];
 
 export const initialCustomers = [
-  { id: 1, nom: "Amine Ben Ali", telephone: "+216 22 418 900" },
-  { id: 2, nom: "Senda Mansour", telephone: "+216 55 710 342" },
-  { id: 3, nom: "Youssef Trabelsi", telephone: "+216 98 302 119" },
-  { id: 4, nom: "Leila Karoui", telephone: "+216 24 881 504" },
-  { id: 5, nom: "Karim Bouazizi", telephone: "+216 50 619 772" },
-  { id: 6, nom: "Nadia Gharbi", telephone: "+216 29 945 120" },
-  { id: 7, nom: "Mehdi Chaabane", telephone: "+216 92 147 830" },
-  { id: 8, nom: "Inès Ben Youssef", telephone: "Table 07 • +216 21 504 611" },
+  { id: 1, nom: "Amine Ben Ali", telephone: "+216 22 410 890", email: "amine.benali@velora.tn" },
+  { id: 2, nom: "Sarra Trabelsi", telephone: "+216 55 832 104", email: "sarra.trabelsi@velora.tn" },
+  { id: 3, nom: "Youssef Gharbi", telephone: "+216 98 312 765", email: "youssef.gharbi@velora.tn" },
+  { id: 4, nom: "Inès Khelifi", telephone: "+216 24 709 331", email: "ines.khelifi@velora.tn" },
+  { id: 5, nom: "Mehdi Bouazizi", telephone: "+216 50 619 420", email: "mehdi.bouazizi@velora.tn" },
 ];

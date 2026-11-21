@@ -400,38 +400,6 @@ export default function Ajouter({ addDish }) {
                   {errors.image}
                 </div>
               )}
-
-              <div className="velora-preset-box">
-                <span className="velora-preset-label">
-                  Photographies de la collection VELORA :
-                </span>
-                <div className="velora-preset-grid">
-                  {PRESET_IMAGES.map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      className={`velora-preset-btn ${
-                        formData.image === preset.src ? "active" : ""
-                      }`}
-                      onClick={() => {
-                        setFormData((prev) => ({ ...prev, image: preset.src }));
-                        setSelectedFileName("");
-                        setFeedback(null);
-                        if (errors.image) {
-                          setErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated.image;
-                            return updated;
-                          });
-                        }
-                      }}
-                    >
-                      <img src={preset.src} alt={preset.label} />
-                      <span>{preset.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             <div className="col-12 pt-2 d-flex gap-3 flex-wrap">

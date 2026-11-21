@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { CATEGORIES } from "../data/initialData";
 import DishCard from "../components/DishCard";
+import place from "../assets/resto/place.jpg";
+// Top of src/pages/Home.jsx
 
 const CATEGORY_DESCRIPTIONS = {
   Entrées:
@@ -14,16 +16,14 @@ const CATEGORY_DESCRIPTIONS = {
 };
 
 export default function Home({ dishes, orders }) {
+
   const availableDishes = dishes.filter(
     (dish) => dish.disponible && Number(dish.stock) > 0
   );
 
   const tastingPreviewDishes = availableDishes.slice(0, 4);
   const featuredDishes = availableDishes.slice(0, 4);
-  const showcasePhoto =
-    availableDishes[2]?.image ||
-    availableDishes[0]?.image ||
-    "/dishes/Noir Lobster.jpg";
+  const showcasePhoto = place;
 
   const activeOrdersCount = orders.filter(
     (order) => order.statut !== "Livrée" && order.statut !== "Annulée"
@@ -81,15 +81,15 @@ export default function Home({ dishes, orders }) {
       {/* EDITORIAL SPLIT MENU PREVIEW */}
       <section className="velora-section velora-shell">
         <div className="velora-editorial-split velora-glass-panel">
-          <div className="velora-editorial-media">
-            <img
-              src={showcasePhoto}
-              alt="Assiette signature de saison VELORA"
-            />
-            <span className="velora-editorial-caption">
-              Création du Chef • Service du Soir
-            </span>
-          </div>
+     <div className="velora-editorial-media">
+  <img
+    src={showcasePhoto}
+    alt="Salle et ambiance nocturne du restaurant VELORA"
+  />
+  <span className="velora-editorial-caption">
+    La Salle • Service du Soir
+  </span>
+</div>
 
           <div>
             <span className="velora-eyebrow">LA CARTE DU SOIR</span>
