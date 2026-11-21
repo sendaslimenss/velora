@@ -2451,3 +2451,789 @@ select option {
   cursor: not-allowed;
   transform: none !important;
 }
+/* ==========================================================================
+   VELORA — PHASE 6: RESPONSIVE DESIGN OPTIMIZATION
+   Breakpoints:
+   - Large desktop:    >= 1440px
+   - Standard desktop: 1200px – 1439px
+   - Laptop:           992px  – 1199px
+   - Tablet:           768px  – 991px
+   - Small tablet:     576px  – 767px
+   - Mobile:           375px  – 575px
+   - Small mobile:     320px  – 374px
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   0. BASE BOX-SIZING, FLUID CONTAINERS & OVERFLOW CONTAINMENT
+   -------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+.velora-app,
+.velora-main {
+  width: 100%;
+  max-width: 100%;
+}
+
+.velora-shell {
+  width: 100%;
+  max-width: 1380px;
+  margin-inline: auto;
+  padding-inline: clamp(0.875rem, 2.5vw, 2rem);
+}
+
+@media (min-width: 1440px) {
+  .velora-shell {
+    max-width: 1480px;
+    padding-inline: 2.5rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   E. NAVBAR (Navbar.jsx)
+   -------------------------------------------------------------------------- */
+.velora-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  width: 100%;
+}
+
+.velora-navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  min-height: clamp(64px, 8vw, 82px);
+  position: relative;
+}
+
+.velora-brand {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.velora-logo-svg {
+  width: clamp(132px, 15vw, 185px);
+  height: auto;
+  display: block;
+}
+
+.velora-nav-links {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.35rem, 1.2vw, 1.15rem);
+}
+
+.velora-nav-link {
+  min-height: 44px;
+  padding: 0.55rem clamp(0.65rem, 1.1vw, 1rem);
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-size: clamp(0.85rem, 0.95vw, 0.96rem);
+}
+
+.velora-nav-toggle {
+  min-width: 44px;
+  min-height: 44px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+/* Tablet & below: collapsible glass dropdown drawer */
+@media (max-width: 991.98px) {
+  .velora-nav-toggle {
+    display: inline-flex;
+  }
+
+  .velora-nav-links {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: clamp(0.875rem, 2.5vw, 2rem);
+    right: clamp(0.875rem, 2.5vw, 2rem);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+    padding: 0.85rem;
+    border-radius: 16px;
+    background: rgba(12, 12, 15, 0.96);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(207, 166, 73, 0.28);
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.65);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+    z-index: 1040;
+  }
+
+  .velora-nav-links.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .velora-nav-link {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-size: 0.98rem;
+  }
+}
+
+@media (max-width: 374.98px) {
+  .velora-logo-svg {
+    width: 120px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   A. DISH CARDS (.velora-dishes-grid & DishCard.jsx)
+   -------------------------------------------------------------------------- */
+.velora-dishes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 275px), 1fr));
+  gap: clamp(1rem, 2vw, 1.65rem);
+  width: 100%;
+}
+
+@media (min-width: 1440px) {
+  .velora-dishes-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 992px) and (max-width: 1439.98px) {
+  .velora-dishes-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 576px) and (max-width: 991.98px) {
+  .velora-dishes-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .velora-dishes-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.velora-dish-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+  height: 100%;
+}
+
+.velora-dish-media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  width: 100%;
+  overflow: hidden;
+}
+
+.velora-dish-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.velora-dish-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: clamp(1rem, 2vw, 1.35rem);
+}
+
+.velora-dish-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.velora-dish-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-size: clamp(1.08rem, 1.4vw, 1.28rem);
+}
+
+.velora-dish-price {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+}
+
+.velora-dish-desc {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.velora-dish-footer {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.velora-dish-stock {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.velora-dish-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.velora-dish-actions button {
+  min-height: 40px;
+}
+
+@media (max-width: 374.98px) {
+  .velora-dish-actions {
+    width: 100%;
+  }
+
+  .velora-dish-actions button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   B & H. ORDER CARDS & ORDERS PAGE (.velora-orders-grid, Commandes.jsx, OrderCard.jsx)
+   -------------------------------------------------------------------------- */
+.velora-orders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+  gap: clamp(1rem, 2vw, 1.5rem);
+  width: 100%;
+}
+
+@media (min-width: 1440px) {
+  .velora-orders-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1439.98px) {
+  .velora-orders-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767.98px) {
+  .velora-orders-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.velora-order-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+  padding: clamp(1rem, 2.2vw, 1.45rem);
+}
+
+.velora-order-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.velora-order-top > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.velora-order-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+}
+
+.velora-order-client {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-size: clamp(1.05rem, 1.4vw, 1.22rem);
+}
+
+.velora-order-phone {
+  overflow-wrap: anywhere;
+}
+
+.velora-order-badge {
+  flex-shrink: 0;
+  white-space: nowrap;
+  max-width: 100%;
+  font-size: clamp(0.72rem, 0.9vw, 0.8rem);
+}
+
+.velora-order-items {
+  min-width: 0;
+}
+
+.velora-order-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.velora-order-item-info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.velora-order-item-info > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.velora-order-qty,
+.velora-order-item-price {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.velora-order-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.velora-order-total-box {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.velora-order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.velora-select-sm {
+  min-height: 42px;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 145px;
+}
+
+.velora-order-actions button {
+  min-height: 42px;
+  flex: 0 1 auto;
+}
+
+@media (max-width: 430px) {
+  .velora-order-top {
+    flex-wrap: wrap;
+  }
+
+  .velora-select-sm {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .velora-order-actions button {
+    flex: 1 1 calc(50% - 0.5rem);
+    justify-content: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   C. STATISTICS DASHBOARD KPI CARDS (.velora-stats-grid & StatCard.jsx)
+   -------------------------------------------------------------------------- */
+.velora-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: clamp(0.85rem, 1.8vw, 1.35rem);
+  width: 100%;
+}
+
+@media (min-width: 1200px) {
+  .velora-stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 576px) and (max-width: 1199.98px) {
+  .velora-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .velora-stats-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.velora-stat-card {
+  min-width: 0;
+  max-width: 100%;
+  padding: clamp(1rem, 2vw, 1.4rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.velora-stat-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.velora-stat-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(0.76rem, 0.9vw, 0.85rem);
+}
+
+.velora-stat-icon {
+  flex-shrink: 0;
+}
+
+.velora-stat-value {
+  font-size: clamp(1.45rem, 2.4vw, 2.1rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.velora-stat-sub {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-size: clamp(0.78rem, 0.9vw, 0.86rem);
+}
+
+/* --------------------------------------------------------------------------
+   D. DASHBOARD TABLES (Statistiques.jsx & Bootstrap .table-responsive)
+   -------------------------------------------------------------------------- */
+.velora-main .table-responsive,
+.velora-shell .table-responsive {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.velora-main .table,
+.velora-shell .table {
+  width: 100%;
+  min-width: 560px;
+  margin-bottom: 0;
+}
+
+.velora-main .table th,
+.velora-main .table td,
+.velora-shell .table th,
+.velora-shell .table td {
+  padding: clamp(0.6rem, 1.2vw, 0.9rem) clamp(0.65rem, 1.4vw, 1rem);
+  vertical-align: middle;
+  overflow-wrap: break-word;
+  word-break: normal;
+  font-size: clamp(0.82rem, 0.95vw, 0.94rem);
+}
+
+.velora-main .table th {
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   F. ADD DISH PAGE (Ajouter.jsx)
+   -------------------------------------------------------------------------- */
+.velora-add-layout,
+.velora-form-preview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr);
+  gap: clamp(1.15rem, 2.5vw, 2rem);
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 991.98px) {
+  .velora-add-layout,
+  .velora-form-preview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.velora-form-card {
+  min-width: 0;
+  max-width: 100%;
+  padding: clamp(1.1rem, 2.5vw, 2rem);
+}
+
+.velora-form-card input,
+.velora-form-card select,
+.velora-form-card textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.velora-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 92px), 1fr));
+  gap: 0.65rem;
+  width: 100%;
+}
+
+@media (max-width: 374.98px) {
+  .velora-preset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.velora-upload-zone,
+.velora-file-upload {
+  width: 100%;
+  max-width: 100%;
+  padding: clamp(0.9rem, 2vw, 1.35rem);
+  overflow-wrap: anywhere;
+}
+
+.velora-preview-sticky {
+  position: sticky;
+  top: 96px;
+  min-width: 0;
+}
+
+@media (max-width: 991.98px) {
+  .velora-preview-sticky {
+    position: static;
+  }
+}
+
+.velora-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+@media (max-width: 575.98px) {
+  .velora-form-actions > button,
+  .velora-form-actions > a {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: center;
+    min-height: 46px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   G. MENU PAGE, FILTERS & MODALS (Menu.jsx, SearchBar.jsx, OrderFormModal.jsx, ConfirmModal.jsx)
+   -------------------------------------------------------------------------- */
+.velora-search-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.velora-search-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+}
+
+.velora-filter-bar,
+.velora-category-tabs,
+.velora-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.velora-filter-bar button,
+.velora-category-tabs button {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+@media (max-width: 575.98px) {
+  .velora-toolbar > * {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+}
+
+/* Modals: safe on mobile and short viewport heights */
+.velora-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1055;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(0.65rem, 2vw, 1.5rem);
+  overflow-y: auto;
+}
+
+.velora-modal-card {
+  width: min(100%, 640px);
+  max-width: 100%;
+  max-height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: clamp(1rem, 2.5vw, 1.75rem);
+  margin: auto;
+}
+
+.velora-confirm-card {
+  width: min(100%, 460px);
+}
+
+.velora-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.velora-modal-title {
+  font-size: clamp(1.15rem, 2vw, 1.5rem);
+  overflow-wrap: anywhere;
+}
+
+.velora-modal-close {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 575.98px) {
+  .velora-modal-card .d-flex.justify-content-end {
+    flex-direction: column-reverse;
+  }
+
+  .velora-modal-card .d-flex.justify-content-end > button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   I. HOME PAGE HERO, METRICS, CATEGORIES & FOOTER (Home.jsx)
+   -------------------------------------------------------------------------- */
+.velora-hero {
+  padding-block: clamp(2.25rem, 6vw, 5.5rem);
+  min-height: unset;
+}
+
+.velora-hero-title {
+  font-size: clamp(2rem, 5.2vw, 4.1rem);
+  line-height: 1.12;
+  overflow-wrap: break-word;
+}
+
+.velora-hero-subtitle {
+  font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+  max-width: 62ch;
+}
+
+.velora-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+@media (max-width: 575.98px) {
+  .velora-hero-actions > a,
+  .velora-hero-actions > button {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+}
+
+.velora-hero-metrics,
+.velora-categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: clamp(0.85rem, 1.8vw, 1.35rem);
+  width: 100%;
+}
+
+@media (max-width: 430px) {
+  .velora-hero-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 340px) {
+  .velora-hero-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.velora-footer {
+  padding-block: clamp(1.5rem, 3vw, 2.5rem);
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   GLOBAL TOUCH TARGETS & BUTTONS
+   -------------------------------------------------------------------------- */
+.velora-btn {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}

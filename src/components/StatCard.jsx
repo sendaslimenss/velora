@@ -9,24 +9,16 @@ export default function StatCard({
   accent = "gold",
 }) {
   const numericTarget = typeof value === "number" ? value : null;
-  const [displayValue, setDisplayValue] = useState(
-    numericTarget !== null ? 0 : value
-  );
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const shouldAnimate =
+    numericTarget !== null && numericTarget !== 0 && !prefersReducedMotion;
+
+  const [animatedValue, setAnimatedValue] = useState(0);
 
   useEffect(() => {
-    if (numericTarget === null) {
-      setDisplayValue(value);
-      return;
-    }
-
-    const prefersReducedMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (prefersReducedMotion || numericTarget === 0) {
-      setDisplayValue(numericTarget);
-      return;
-    }
+    if (!shouldAnimate) return;
 
     const duration = 550;
     const startTime = performance.now();
@@ -35,7 +27,7 @@ export default function StatCard({
     const animate = (now) => {
       const progress = Math.min((now - startTime) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplayValue(Math.round(eased * numericTarget));
+      setAnimatedValue(Math.round(eased * numericTarget));
 
       if (progress < 1) {
         frameId = requestAnimationFrame(animate);
@@ -44,7 +36,9 @@ export default function StatCard({
 
     frameId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(frameId);
-  }, [numericTarget, value]);
+  }, [shouldAnimate, numericTarget]);
+
+  const displayValue = shouldAnimate ? animatedValue : value;
 
   const formattedValue =
     typeof displayValue === "number"

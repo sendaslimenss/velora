@@ -27,6 +27,19 @@ export const ALLOWED_IMAGE_MIME_TYPES = [
 
 const SUPPORTED_IMAGE_EXT_REGEX =
   /\.(jpg|jpeg|png|webp|gif|svg|avif)(\?.*)?$/i;
+const stripControlChars = (str) =>
+  Array.from(str)
+    .filter((ch) => {
+      const code = ch.charCodeAt(0);
+      return !(
+        (code >= 0 && code <= 8) ||
+        code === 11 ||
+        code === 12 ||
+        (code >= 14 && code <= 31) ||
+        code === 127
+      );
+    })
+    .join("");
 
 /**
  * Safely converts any user-supplied value into a sanitized single-line string,
@@ -36,8 +49,7 @@ export const sanitizeText = (value, maxLength = 200) => {
   if (value === null || value === undefined) return "";
   if (typeof value !== "string" && typeof value !== "number") return "";
 
-  return String(value)
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+  return stripControlChars(String(value))
     .replace(/<[^>]*>/g, "")
     .replace(/(?:javascript|vbscript|data\s*:\s*text\/html)\s*:/gi, "")
     .replace(/\s+/g, " ")
@@ -52,8 +64,7 @@ export const sanitizeMultilineText = (value, maxLength = 500) => {
   if (value === null || value === undefined) return "";
   if (typeof value !== "string" && typeof value !== "number") return "";
 
-  return String(value)
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+  return stripControlChars(String(value))
     .replace(/<[^>]*>/g, "")
     .replace(/(?:javascript|vbscript|data\s*:\s*text\/html)\s*:/gi, "")
     .replace(/[ \t]+/g, " ")
@@ -443,7 +454,10 @@ export const validateOrderForm = (
     0
   );
 
-  if (normalizedItems.length > 0 && (!Number.isFinite(computedTotal) || computedTotal <= 0)) {
+  if (
+    normalizedItems.length > 0 &&
+    (!Number.isFinite(computedTotal) || computedTotal <= 0)
+  ) {
     errors.total = "Le montant total de la commande est invalide.";
   }
 

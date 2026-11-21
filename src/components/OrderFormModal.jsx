@@ -9,25 +9,72 @@ export default function OrderFormModal({
   onClose,
   onSubmitOrder,
 }) {
+  if (!isOpen) return null;
+
+  const modalKey = editingOrder ? `edit-${editingOrder.id}` : "create";
+
+  return (
+    <OrderFormModalContent
+      key={modalKey}
+      editingOrder={editingOrder}
+      dishes={dishes}
+      customers={customers}
+      onClose={onClose}
+      onSubmitOrder={onSubmitOrder}
+    />
+  );
+}
+
+function OrderFormModalContent({
+  editingOrder = null,
+  dishes = [],
+  customers = [],
+  onClose,
+  onSubmitOrder,
+}) {
   const isEditMode = Boolean(editingOrder);
 
-  const [customerMode, setCustomerMode] = useState("new");
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
-  const [clientName, setClientName] = useState("");
-  const [telephone, setTelephone] = useState("");
-  const [orderDate, setOrderDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
+  const [customerMode, setCustomerMode] = useState(() =>
+    editingOrder ? "new" : customers.length > 0 ? "existing" : "new"
   );
-  const [initialStatus, setInitialStatus] = useState("Confirmée");
+  const [selectedCustomerId, setSelectedCustomerId] = useState(() =>
+    !editingOrder && customers.length > 0 ? String(customers[0].id) : ""
+  );
+  const [clientName, setClientName] = useState(() =>
+    editingOrder ? editingOrder.client || "" : customers[0]?.nom || ""
+  );
+  const [telephone, setTelephone] = useState(() =>
+    editingOrder
+      ? editingOrder.telephone || ""
+      : customers[0]?.telephone || ""
+  );
+  const [orderDate, setOrderDate] = useState(
+    () => editingOrder?.date || new Date().toISOString().slice(0, 10)
+  );
+  const [initialStatus, setInitialStatus] = useState(
+    () => editingOrder?.statut || "Confirmée"
+  );
 
-  const [pickerDishId, setPickerDishId] = useState("");
+  const [pickerDishId, setPickerDishId] = useState(() => {
+    const firstAvailable = dishes.find(
+      (d) => d.disponible && Number(d.stock) > 0
+    );
+    return firstAvailable ? String(firstAvailable.id) : "";
+  });
   const [pickerQty, setPickerQty] = useState(1);
-  const [orderItems, setOrderItems] = useState([]);
+  const [orderItems, setOrderItems] = useState(() =>
+    editingOrder
+      ? (editingOrder.plats || []).map((item) => ({
+          dishId: item.dishId,
+          nom: item.nom,
+          prix: Number(item.prix) || 0,
+          quantite: Number(item.quantite) || 1,
+        }))
+      : []
+  );
   const [formError, setFormError] = useState("");
 
   useEffect(() => {
-    if (!isOpen) return;
-
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
@@ -40,53 +87,7 @@ export default function OrderFormModal({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    setFormError("");
-    const firstAvailable = dishes.find(
-      (d) => d.disponible && Number(d.stock) > 0
-    );
-    setPickerDishId(firstAvailable ? String(firstAvailable.id) : "");
-    setPickerQty(1);
-
-    if (editingOrder) {
-      setCustomerMode("new");
-      setSelectedCustomerId("");
-      setClientName(editingOrder.client || "");
-      setTelephone(editingOrder.telephone || "");
-      setOrderDate(
-        editingOrder.date || new Date().toISOString().slice(0, 10)
-      );
-      setInitialStatus(editingOrder.statut || "Confirmée");
-      setOrderItems(
-        (editingOrder.plats || []).map((item) => ({
-          dishId: item.dishId,
-          nom: item.nom,
-          prix: Number(item.prix) || 0,
-          quantite: Number(item.quantite) || 1,
-        }))
-      );
-    } else {
-      setCustomerMode(customers.length > 0 ? "existing" : "new");
-      if (customers.length > 0) {
-        setSelectedCustomerId(String(customers[0].id));
-        setClientName(customers[0].nom);
-        setTelephone(customers[0].telephone || "");
-      } else {
-        setSelectedCustomerId("");
-        setClientName("");
-        setTelephone("");
-      }
-      setOrderDate(new Date().toISOString().slice(0, 10));
-      setInitialStatus("Confirmée");
-      setOrderItems([]);
-    }
-  }, [isOpen, editingOrder]);
-
-  if (!isOpen) return null;
+  }, [onClose]);
 
   const getMaxAllowedForDish = (dishId) => {
     const dish = dishes.find((d) => d.id === dishId);
@@ -628,7 +629,10 @@ export default function OrderFormModal({
                 {orderItems.length > 1 ? "s" : ""} • {totalUnits} portion
                 {totalUnits > 1 ? "s" : ""})
               </div>
-              <div className="velora-order-total-value" style={{ fontSize: "1.75rem" }}>
+              <div
+                className="velora-order-total-value"
+                style={{ fontSize: "1.75rem" }}
+              >
                 Total : {totalAmount} DT
               </div>
             </div>

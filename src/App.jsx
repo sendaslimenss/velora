@@ -57,56 +57,49 @@ const mergeCustomersWithOrders = (customersList, ordersList) => {
   return merged;
 };
 
+const hydrateInitialVeloraState = () => {
+  const dishesHydration = loadCollectionFromStorage(
+    STORAGE_KEYS.DISHES,
+    initialDishes,
+    normalizeDish
+  );
+  const ordersHydration = loadCollectionFromStorage(
+    STORAGE_KEYS.ORDERS,
+    initialOrders,
+    normalizeOrder
+  );
+  const customersHydration = loadCollectionFromStorage(
+    STORAGE_KEYS.CUSTOMERS,
+    initialCustomers,
+    normalizeCustomer
+  );
+
+  const hydratedCustomers = customersHydration.seededFromDefault
+    ? mergeCustomersWithOrders(
+        customersHydration.data,
+        ordersHydration.data
+      )
+    : customersHydration.data;
+
+  return {
+    dishes: dishesHydration.data,
+    orders: ordersHydration.data,
+    customers: hydratedCustomers,
+    snapshots: {
+      [STORAGE_KEYS.DISHES]: dishesHydration.rawSnapshot,
+      [STORAGE_KEYS.ORDERS]: ordersHydration.rawSnapshot,
+      [STORAGE_KEYS.CUSTOMERS]: customersHydration.rawSnapshot,
+    },
+  };
+};
+
 export default function App() {
-  const initialHydrationRef = useRef(null);
+  const [initialState] = useState(hydrateInitialVeloraState);
+  const lastSavedSnapshotsRef = useRef(initialState.snapshots);
 
-  if (initialHydrationRef.current === null) {
-    const dishesHydration = loadCollectionFromStorage(
-      STORAGE_KEYS.DISHES,
-      initialDishes,
-      normalizeDish
-    );
-    const ordersHydration = loadCollectionFromStorage(
-      STORAGE_KEYS.ORDERS,
-      initialOrders,
-      normalizeOrder
-    );
-    const customersHydration = loadCollectionFromStorage(
-      STORAGE_KEYS.CUSTOMERS,
-      initialCustomers,
-      normalizeCustomer
-    );
-
-    const hydratedCustomers = customersHydration.seededFromDefault
-      ? mergeCustomersWithOrders(
-          customersHydration.data,
-          ordersHydration.data
-        )
-      : customersHydration.data;
-
-    initialHydrationRef.current = {
-      dishes: dishesHydration.data,
-      orders: ordersHydration.data,
-      customers: hydratedCustomers,
-      snapshots: {
-        [STORAGE_KEYS.DISHES]: dishesHydration.rawSnapshot,
-        [STORAGE_KEYS.ORDERS]: ordersHydration.rawSnapshot,
-        [STORAGE_KEYS.CUSTOMERS]: customersHydration.rawSnapshot,
-      },
-    };
-  }
-
-  const lastSavedSnapshotsRef = useRef(initialHydrationRef.current.snapshots);
-
-  const [dishes, setDishes] = useState(
-    () => initialHydrationRef.current.dishes
-  );
-  const [orders, setOrders] = useState(
-    () => initialHydrationRef.current.orders
-  );
-  const [customers, setCustomers] = useState(
-    () => initialHydrationRef.current.customers
-  );
+  const [dishes, setDishes] = useState(initialState.dishes);
+  const [orders, setOrders] = useState(initialState.orders);
+  const [customers, setCustomers] = useState(initialState.customers);
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
